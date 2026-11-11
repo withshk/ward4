@@ -1,0 +1,2818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>제4병동</title>
+<style>
+:root{
+  --serif:"AppleMyungjo","Nanum Myeongjo","Batang","Noto Serif KR",serif;
+  --sans:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --mono:"Menlo","Consolas","D2Coding",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;color:#cfcfc8;font-family:var(--sans);
+  user-select:none;-webkit-user-select:none;cursor:default}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;background:#000}
+
+/* ---------- HUD (캠코더 뷰파인더) ---------- */
+#hud{position:fixed;inset:0;display:none;pointer-events:none;font-family:var(--mono);color:#e8e8e0;text-shadow:0 0 4px #000,0 1px 1px #000}
+#hud.show{display:block}
+.corner{position:absolute;width:28px;height:28px;border:2px solid rgba(255,255,255,.5)}
+.c1{left:18px;top:18px;border-right:0;border-bottom:0}
+.c2{right:18px;top:18px;border-left:0;border-bottom:0}
+.c3{left:18px;bottom:18px;border-right:0;border-top:0}
+.c4{right:18px;bottom:18px;border-left:0;border-top:0}
+#rec{position:absolute;left:36px;top:28px;font-size:15px;letter-spacing:2px}
+#rec .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#e01414;margin-right:8px;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+#batt{position:absolute;right:36px;top:28px;font-size:12px;display:flex;align-items:center;gap:8px;letter-spacing:1px}
+#batt .cell{display:inline-block;width:56px;height:17px;border:2px solid #ddd;position:relative;border-radius:2px}
+#batt .cell:after{content:"";position:absolute;right:-6px;top:3px;width:3px;height:7px;background:#ddd}
+#battfill{position:absolute;left:1px;top:1px;bottom:1px;background:#d8d8d0;width:100%}
+#battfill.low{background:#e03a2a;animation:blink .7s steps(2) infinite}
+#spare{font-family:var(--sans);opacity:.8}
+#obj{position:absolute;left:36px;top:64px;font-family:var(--sans);font-size:14px;max-width:360px;line-height:1.5;opacity:.9}
+#obj .t{font-size:11px;letter-spacing:4px;color:#c33;font-family:var(--mono)}
+#loc{position:absolute;left:50%;top:28px;transform:translateX(-50%);font-family:var(--serif);font-size:17px;letter-spacing:6px;opacity:0;transition:opacity .9s;white-space:nowrap}
+#cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(255,255,255,.45)}
+#prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-family:var(--sans);font-size:15px;background:rgba(0,0,0,.5);
+  padding:6px 14px;border:1px solid rgba(255,255,255,.22);border-radius:3px;white-space:nowrap;display:none}
+#prompt b{color:#f0d890;font-weight:600;margin-right:6px}
+#hint{position:absolute;left:50%;top:20%;transform:translateX(-50%);font-family:var(--sans);font-size:15px;color:#f0d890;background:rgba(0,0,0,.55);
+  padding:8px 18px;border-left:3px solid #c33;white-space:nowrap;opacity:0;transition:opacity .6s}
+#sub{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);font-family:var(--serif);font-size:21px;text-align:center;
+  width:76%;text-shadow:0 0 10px #000,0 2px 3px #000;opacity:0;transition:opacity .45s;line-height:1.5}
+#stam{position:absolute;left:50%;bottom:62px;width:170px;height:3px;margin-left:-85px;background:rgba(255,255,255,.14);opacity:0;transition:opacity .3s}
+#stamfill{display:block;height:100%;background:#cfcfc8;width:100%}
+#stamfill.ex{background:#c33}
+#inv{position:absolute;left:36px;bottom:30px;font-family:var(--sans);font-size:13px;line-height:1.75;opacity:.9}
+#inv span{display:block}
+#inv span:before{content:"· ";color:#c33}
+#stamp{position:absolute;right:36px;bottom:30px;font-size:14px;letter-spacing:1px;color:#e6c97a;opacity:.75}
+
+#happytag{position:absolute;left:236px;top:28px;font-size:13px;letter-spacing:3px;color:#ff9ac8;display:none}
+.btn.on{border-color:#ff8fc0;color:#ffc6e0}
+#scare{position:fixed;inset:0;width:100%;height:100%;display:none;image-rendering:pixelated;object-fit:cover;pointer-events:none}
+
+/* ---------- 화면들 ---------- */
+.screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;background:rgba(0,0,0,.74)}
+.screen.show{display:flex}
+.btn{font-family:var(--serif);font-size:20px;color:#d6d6ce;background:rgba(0,0,0,.35);border:1px solid #555;padding:12px 46px;margin:8px;
+  cursor:pointer;letter-spacing:8px;text-indent:8px;transition:all .2s;pointer-events:auto}
+.btn:hover{border-color:#b22;color:#fff;background:rgba(120,0,0,.25);box-shadow:0 0 24px rgba(180,20,20,.25)}
+.btn.small{font-size:15px;padding:8px 30px;letter-spacing:5px;border-color:#333;color:#999}
+
+#title{background:radial-gradient(ellipse at center,rgba(0,0,0,.35) 0%,rgba(0,0,0,.86) 78%)}
+#title .pre{font-family:var(--serif);letter-spacing:9px;font-size:15px;color:#8f8f86;margin-bottom:14px}
+#title h1{font-family:var(--serif);font-weight:700;font-size:clamp(64px,12vw,150px);margin:0;letter-spacing:.12em;text-indent:.12em;color:#e6e2d6;
+  text-shadow:0 0 34px rgba(160,10,10,.55),0 0 2px #000;animation:tflick 5.5s infinite}
+@keyframes tflick{0%,91%,95%,100%{opacity:1}92%{opacity:.25}93.5%{opacity:.9}94%{opacity:.35}}
+#title .tag{font-family:var(--serif);font-size:18px;color:#a33;letter-spacing:6px;margin:12px 0 38px}
+.keys{margin-top:30px;display:grid;grid-template-columns:auto auto auto auto;gap:6px 22px;font-size:13px;color:#8d8d86;text-align:left}
+.keys b{color:#d2d2c8;font-family:var(--mono);font-weight:400;text-align:right}
+.warn{margin-top:26px;font-size:12px;color:#77756c;line-height:1.8}
+
+#intro{background:#000;cursor:pointer}
+#introtext{font-family:var(--serif);font-size:23px;line-height:2.3;color:#cfcbbd;max-width:80%}
+#introtext div{opacity:0;animation:fadein 1.6s forwards}
+@keyframes fadein{to{opacity:1}}
+#intro .skip{position:absolute;bottom:38px;font-size:12px;color:#555;letter-spacing:3px}
+#intro .skip.ready{font-family:var(--serif);font-size:19px;color:#c33;letter-spacing:8px;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+
+#note{background:rgba(0,0,0,.8);cursor:pointer}
+.paper{width:min(600px,88vw);max-height:80vh;overflow:auto;background:#cdc5ab;color:#231d15;font-family:var(--serif);padding:38px 44px 42px;
+  text-align:left;transform:rotate(-.8deg);box-shadow:0 0 0 1px #8d8468,0 20px 70px #000,inset 0 0 90px rgba(90,60,20,.38);
+  background-image:radial-gradient(ellipse at 80% 12%,rgba(110,70,25,.28),transparent 42%),radial-gradient(ellipse at 12% 88%,rgba(70,20,10,.32),transparent 36%)}
+#notetitle{font-size:14px;letter-spacing:5px;color:#6b2a1c;border-bottom:1px solid rgba(60,40,20,.45);padding-bottom:10px;margin-bottom:16px}
+#notebody{font-size:17px;line-height:1.85;white-space:pre-wrap}
+#note .close{margin-top:22px;font-size:13px;color:#8d8d86;letter-spacing:3px}
+
+#pause h2,#dead h2,#end h2{font-family:var(--serif);font-weight:700;letter-spacing:12px;text-indent:12px;margin:0 0 26px}
+#pause h2{font-size:40px;color:#ddd}
+.opt{display:flex;align-items:center;gap:16px;margin:7px 0;font-size:14px;color:#aaa;pointer-events:auto}
+.opt label{width:92px;text-align:right}
+.opt input{width:230px;accent-color:#b22}
+#pause .gap{height:18px}
+
+#dead{background:rgba(20,0,0,.9)}
+#dead h2{font-size:clamp(28px,5vw,54px);color:#c01818;text-shadow:0 0 30px #600;letter-spacing:8px;text-indent:8px}
+#dead p{font-family:var(--serif);color:#8a7b74;margin:0 0 30px;letter-spacing:3px}
+
+#end{background:#05070b}
+#endtext{font-family:var(--serif);font-size:21px;line-height:2.2;color:#cfcbbd;max-width:80%;min-height:330px}
+#endtext div{opacity:0;animation:fadein 1.8s forwards}
+#endstats{font-family:var(--mono);font-size:13px;color:#7d7d74;margin:18px 0 10px;letter-spacing:2px;opacity:0;transition:opacity 1.5s}
+#btnAgain{opacity:0;transition:opacity 1.5s}
+
+#err{background:#000;color:#c66;font-size:16px;line-height:1.8;padding:40px}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="hud">
+  <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+  <div id="rec"><span class="dot"></span>REC <span id="tc">00:00:00</span></div>
+  <div id="happytag">♥ HAPPY MODE</div>
+  <div id="batt"><span id="spare"></span><span>LIGHT</span><span class="cell"><i id="battfill"></i></span></div>
+  <div id="obj"><div class="t">목표</div><div id="objtext"></div></div>
+  <div id="loc"></div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="hint"></div>
+  <div id="sub"></div>
+  <div id="stam"><i id="stamfill"></i></div>
+  <div id="inv"></div>
+  <div id="stamp"></div>
+</div>
+
+<canvas id="scare" width="256" height="256"></canvas>
+
+<div id="note" class="screen">
+  <div class="paper"><div id="notetitle"></div><div id="notebody"></div></div>
+  <div class="close">[E] 또는 클릭으로 닫기</div>
+</div>
+
+<div id="title" class="screen show">
+  <div class="pre">모운정신병원 · 1998년 폐쇄</div>
+  <h1>제4병동</h1>
+  <div class="tag">그 사람은 스물여덟 해째 잠들지 않았다</div>
+  <button class="btn" id="btnStart">들어간다</button>
+  <button class="btn small" id="btnHappyT">해피 모드: 꺼짐</button>
+  <div class="keys">
+    <b>W A S D</b><span>이동</span><b>마우스 / ← →</b><span>시점</span>
+    <b>Shift</b><span>달리기</span><b>F</b><span>손전등 켜기·끄기</span>
+    <b>E</b><span>문 · 줍기 · 읽기</span><b>Esc</b><span>일시정지 · 설정</span>
+    <b>Space</b><span>누르는 동안 뒤돌아보기</span><b>H</b><span>해피 모드 켜기·끄기</span>
+  </div>
+  <div class="warn">헤드폰을 쓰고, 방 불을 끄고 하는 걸 권합니다.<br>갑작스러운 큰 소리와 놀라는 장면이 나옵니다.</div>
+</div>
+
+<div id="intro" class="screen"><div id="introtext"></div><div class="skip" id="introskip">클릭하면 건너뜁니다</div></div>
+
+<div id="pause" class="screen">
+  <h2>일시정지</h2>
+  <div class="opt"><label>마우스 감도</label><input type="range" id="optSens" min="0.3" max="2.5" step="0.1" value="1"></div>
+  <div class="opt"><label>음량</label><input type="range" id="optVol" min="0" max="1" step="0.05" value="0.8"></div>
+  <div class="opt"><label>화면 밝기</label><input type="range" id="optGamma" min="0.7" max="1.9" step="0.05" value="1"></div>
+  <div class="keys" style="margin:14px 0 4px"><b>W A S D</b><span>이동</span><b>마우스 / ← →</b><span>시점</span><b>Shift</b><span>달리기</span><b>F</b><span>손전등</span><b>E</b><span>상호작용</span><b>Esc</b><span>계속하기</span><b>Space</b><span>뒤돌아보기</span><b>H</b><span>해피 모드</span></div>
+  <div class="gap"></div>
+  <button class="btn" id="btnResume">계속하기</button>
+  <button class="btn small" id="btnHappyP">해피 모드: 꺼짐</button>
+  <button class="btn small" id="btnRestart">처음부터 다시</button>
+</div>
+
+<div id="dead" class="screen">
+  <h2>제4병동에 환자가 한 명 늘었다</h2>
+  <p id="deadtip"></p>
+  <button class="btn" id="btnRetry">다시 시도</button>
+  <button class="btn small" id="btnRestart2">처음부터 다시</button>
+</div>
+
+<div id="end" class="screen">
+  <div id="endtext"></div>
+  <div id="endstats"></div>
+  <button class="btn" id="btnAgain">다시 들어간다</button>
+</div>
+
+<div id="err" class="screen"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   제4병동 — 폐 정신병원 1인칭 공포 게임 (단일 파일, 외부 리소스 없음)
+   ===================================================================== */
+
+/* ---------------- util ---------------- */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (t) => t * t * (3 - 2 * t);
+const TAU = Math.PI * 2;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rr = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+function hash2(x, z, s) {
+  let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s + 1, 362437)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const rgb = (r, g, b, a) => (a === undefined ? `rgb(${r | 0},${g | 0},${b | 0})` : `rgba(${r | 0},${g | 0},${b | 0},${a})`);
+
+const SET = { sens: 1, vol: 0.8, gamma: 1, happy: false };
+try { const s = JSON.parse(localStorage.getItem('ward4_set') || 'null'); if (s) Object.assign(SET, s); } catch (e) { /* file:// 에서 막힐 수 있음 */ }
+function saveSet() { try { localStorage.setItem('ward4_set', JSON.stringify(SET)); } catch (e) { /* 무시 */ } }
+
+/* ---------------- procedural textures ---------------- */
+const TS = 256;
+const texCanvases = [];
+const TEX = {};
+function newTex(name, draw) {
+  const c = document.createElement('canvas'); c.width = c.height = TS;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  draw(g);
+  texCanvases.push(c);
+  if (name) TEX[name] = texCanvases.length - 1;
+  return texCanvases.length - 1;
+}
+
+function makeNoise(seed, n) {            // 타일링되는 value noise
+  const r = mulberry32(seed); const lat = new Float32Array(n * n);
+  for (let i = 0; i < n * n; i++) lat[i] = r();
+  const out = new Float32Array(TS * TS); const s = n / TS;
+  for (let y = 0; y < TS; y++) {
+    const fy = y * s, y0 = Math.floor(fy), ty = smooth(fy - y0), ya = (y0 % n) * n, yb = ((y0 + 1) % n) * n;
+    for (let x = 0; x < TS; x++) {
+      const fx = x * s, x0 = Math.floor(fx), tx = smooth(fx - x0), xa = x0 % n, xb = (x0 + 1) % n;
+      out[y * TS + x] = lerp(lerp(lat[ya + xa], lat[ya + xb], tx), lerp(lat[yb + xa], lat[yb + xb], tx), ty);
+    }
+  }
+  return out;
+}
+function fbm(seed, base, oct) {
+  const out = new Float32Array(TS * TS); let amp = 1, tot = 0, c = base;
+  for (let o = 0; o < oct && c <= TS; o++) {
+    const n = makeNoise(seed + o * 101, c);
+    for (let i = 0; i < out.length; i++) out[i] += n[i] * amp;
+    tot += amp; amp *= 0.5; c *= 2;
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= tot;
+  return out;
+}
+const N1 = fbm(11, 4, 5), N3 = fbm(37, 3, 5), N4 = fbm(51, 16, 3);
+
+function pixels(g, fn) { const im = g.getImageData(0, 0, TS, TS); fn(im.data); g.putImageData(im, 0, 0); }
+
+function grime(g, o) {
+  o = Object.assign({ amt: 0.5, tint: [34, 28, 20], speck: 10, seed: 1, bottom: 0, top: 0, thr: 0.38 }, o || {});
+  const r = mulberry32(o.seed + 7);
+  pixels(g, (d) => {
+    for (let y = 0, i = 0, j = 0; y < TS; y++) {
+      const v = y / TS, vb = o.bottom * v * v * v, vt = o.top * (1 - v) * (1 - v) * (1 - v);
+      for (let x = 0; x < TS; x++, i += 4, j++) {
+        if (d[i + 3] < 8) continue;
+        const nn = N1[j] * 0.7 + N4[j] * 0.3;
+        let k = clamp((nn - o.thr) * 2.4, 0, 1) * o.amt + (vb + vt) * (0.4 + N4[j] * 0.9);
+        if (k > 0.93) k = 0.93;
+        const s = (r() - 0.5) * o.speck;
+        d[i] = d[i] * (1 - k) + o.tint[0] * k + s;
+        d[i + 1] = d[i + 1] * (1 - k) + o.tint[1] * k + s;
+        d[i + 2] = d[i + 2] * (1 - k) + o.tint[2] * k + s;
+      }
+    }
+  });
+}
+function streaks(g, r, n, col, y0, maxLen) {
+  for (let i = 0; i < n; i++) {
+    const x = r() * TS, w = 1.5 + r() * 7, len = 30 + r() * maxLen, a = 0.06 + r() * 0.22;
+    const gr = g.createLinearGradient(0, y0, 0, y0 + len);
+    gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = gr; g.fillRect(x, y0, w, len);
+  }
+}
+function cracks(g, r, n, col) {
+  g.strokeStyle = col || 'rgba(12,10,8,0.75)'; g.lineWidth = 1;
+  for (let i = 0; i < n; i++) {
+    let x = r() * TS, y = r() * TS, a = r() * TAU;
+    g.beginPath(); g.moveTo(x, y);
+    const seg = 8 + ((r() * 14) | 0);
+    for (let s = 0; s < seg; s++) {
+      a += (r() - 0.5) * 1.3; x += Math.cos(a) * (4 + r() * 9); y += Math.sin(a) * (4 + r() * 9); g.lineTo(x, y);
+      if (r() < 0.15) { g.lineTo(x + Math.cos(a + 1) * (6 + r() * 10), y + Math.sin(a + 1) * (6 + r() * 10)); g.moveTo(x, y); }
+    }
+    g.stroke();
+  }
+}
+function blob(g, r, x, y, rad, col) {
+  g.fillStyle = col;
+  for (let i = 0; i < 14; i++) {
+    const a = r() * TAU, d = r() * rad * 0.7, q = rad * (0.25 + r() * 0.5);
+    g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, q, 0, TAU); g.fill();
+  }
+}
+function bloodSplat(g, r, x, y, rad, drips) {
+  blob(g, r, x, y, rad, 'rgba(62,7,7,0.82)'); blob(g, r, x, y, rad * 0.6, 'rgba(34,2,2,0.8)');
+  for (let i = 0; i < 12; i++) {
+    const a = r() * TAU, d = rad * (0.9 + r() * 1.5);
+    g.fillStyle = 'rgba(62,7,7,0.8)'; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1 + r() * 2.5, 0, TAU); g.fill();
+  }
+  if (drips) for (let i = 0; i < 5; i++) {
+    const dx = x + (r() - 0.5) * rad * 1.4, len = rad * (0.8 + r() * 2.6);
+    g.fillStyle = 'rgba(54,5,5,0.78)'; g.fillRect(dx, y, 1.5 + r() * 2, len);
+    g.beginPath(); g.arc(dx + 1, y + len, 1.9, 0, TAU); g.fill();
+  }
+}
+function handprint(g, x, y, s, rot, col) {
+  g.save(); g.translate(x, y); g.rotate(rot); g.fillStyle = col || 'rgba(66,7,7,0.82)';
+  g.beginPath(); g.ellipse(0, 0, s * 0.5, s * 0.6, 0, 0, TAU); g.fill();
+  for (let i = 0; i < 4; i++) {
+    const fx = (i - 1.5) * s * 0.28;
+    g.beginPath(); g.ellipse(fx, -s * 0.95 - (i === 1 || i === 2 ? s * 0.12 : 0), s * 0.1, s * 0.42, (i - 1.5) * 0.08, 0, TAU); g.fill();
+  }
+  g.beginPath(); g.ellipse(-s * 0.68, -s * 0.15, s * 0.11, s * 0.36, -0.9, 0, TAU); g.fill();
+  g.restore();
+}
+const BRUSH = '"AppleMyungjo","Nanum Brush Script","Nanum Myeongjo","Batang","Apple SD Gothic Neo","Malgun Gothic",serif';
+const GOTHIC = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif';
+function bloodText(g, r, lines, size, cy) {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((ln, li) => {
+    const chars = [...ln]; const step = size * 0.92;
+    let x = TS / 2 - (chars.length * step) / 2 + step / 2; const y = cy + li * size * 1.1;
+    for (const ch of chars) {
+      if (ch !== ' ') {
+        g.save(); g.translate(x + (r() - 0.5) * 5, y + (r() - 0.5) * 9); g.rotate((r() - 0.5) * 0.26);
+        const sc = 0.9 + r() * 0.25; g.scale(sc, sc * (1 + r() * 0.2));
+        g.font = `900 ${size}px ${BRUSH}`;
+        g.fillStyle = 'rgba(40,2,2,0.55)'; g.fillText(ch, 1.6, 1.8);
+        g.fillStyle = 'rgba(78,7,7,0.9)'; g.fillText(ch, 0, 0); g.fillText(ch, 0.7, 0);
+        g.restore();
+        if (r() < 0.65) {
+          const len = 10 + r() * 56, dx = x + (r() - 0.5) * size * 0.45;
+          g.fillStyle = 'rgba(70,6,6,0.72)'; g.fillRect(dx, y + size * 0.25, 1.4 + r() * 1.6, len);
+          g.beginPath(); g.arc(dx + 1, y + size * 0.25 + len, 1.7, 0, TAU); g.fill();
+        }
+      }
+      x += step;
+    }
+  });
+}
+function tally(g, r, rows, col) {
+  g.strokeStyle = col || 'rgba(46,22,14,0.9)'; g.lineWidth = 1.6;
+  for (let ry = 0; ry < rows; ry++) {
+    let x = 12 + r() * 10; const y = 22 + ry * 33 + r() * 6;
+    while (x < TS - 30) {
+      for (let k = 0; k < 4; k++) { const ox = x + k * 5 + (r() - 0.5) * 2; g.beginPath(); g.moveTo(ox, y); g.lineTo(ox + (r() - 0.5) * 2, y + 18 + r() * 4); g.stroke(); }
+      g.beginPath(); g.moveTo(x - 3, y + 16); g.lineTo(x + 19, y + 3); g.stroke();
+      x += 30 + r() * 8;
+    }
+  }
+}
+
+/* --- 벽 --- */
+function drawHospWall(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed);
+  g.fillStyle = '#b4b7a2'; g.fillRect(0, 0, TS, TS);
+  const dy = 146;
+  g.fillStyle = '#55705f'; g.fillRect(0, dy, TS, TS - dy);
+  const thr = o.peel === undefined ? 0.62 : o.peel;
+  pixels(g, (d) => {
+    for (let j = 0, i = 0; j < TS * TS; j++, i += 4) {
+      const n = N3[j] * 0.75 + N4[j] * 0.25;
+      if (n > thr) { const c = 112 + N4[j] * 44 - (n - thr < 0.012 ? 46 : 0); d[i] = c; d[i + 1] = c - 3; d[i + 2] = c - 11; }
+      else if (n > thr - 0.014) { d[i] *= 1.13; d[i + 1] *= 1.13; d[i + 2] *= 1.13; }
+    }
+  });
+  g.fillStyle = '#27332c'; g.fillRect(0, dy - 2, TS, 3);
+  g.fillStyle = '#1f1c18'; g.fillRect(0, TS - 13, TS, 13); g.fillStyle = '#39342c'; g.fillRect(0, TS - 13, TS, 2);
+  streaks(g, r, 12, '44,30,14', 0, 200);
+  cracks(g, r, o.cracks === undefined ? 2 : o.cracks);
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: o.grime === undefined ? 0.5 : o.grime, seed, bottom: 0.5, top: 0.25, tint: [30, 26, 18] });
+}
+function drawConcWall(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed);
+  g.fillStyle = '#6c6b66'; g.fillRect(0, 0, TS, TS);
+  pixels(g, (d) => { for (let j = 0, i = 0; j < TS * TS; j++, i += 4) { const n = (N1[j] - 0.5) * 50 + (N4[j] - 0.5) * 34; d[i] += n; d[i + 1] += n; d[i + 2] += n - 3; } });
+  g.fillStyle = 'rgba(18,18,16,0.5)'; g.fillRect(0, 84, TS, 2); g.fillRect(0, 170, TS, 2);
+  for (let y = 42; y < TS; y += 86) for (let x = 32; x < TS; x += 64) { g.fillStyle = 'rgba(15,15,13,0.7)'; g.beginPath(); g.arc(x, y, 3, 0, TAU); g.fill(); }
+  if (o.pipe) {
+    g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(0, 54, TS, 9);
+    const gr = g.createLinearGradient(0, 32, 0, 56);
+    gr.addColorStop(0, '#2b2019'); gr.addColorStop(0.3, '#8b6248'); gr.addColorStop(0.62, '#5d4030'); gr.addColorStop(1, '#1c1410');
+    g.fillStyle = gr; g.fillRect(0, 32, TS, 24);
+    g.fillStyle = '#26221e'; g.fillRect(40, 27, 8, 36); g.fillRect(200, 27, 8, 36);
+    streaks(g, r, 6, '70,34,10', 56, 170);
+  }
+  streaks(g, r, 14, '18,22,14', 0, 220);
+  cracks(g, r, 3);
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: 0.6, seed, bottom: 0.8, top: 0.2, tint: [14, 18, 12], thr: 0.42 });
+}
+function drawTileWall(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed); const n = 8, s = TS / n;
+  g.fillStyle = '#4f534e'; g.fillRect(0, 0, TS, TS);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (r() < (o.miss === undefined ? 0.06 : o.miss)) { g.fillStyle = rgb(66 + r() * 22, 64 + r() * 20, 58 + r() * 16); g.fillRect(x * s, y * s, s, s); continue; }
+    const v = 176 + r() * 36; g.fillStyle = rgb(v, v + 4, v - 4); g.fillRect(x * s + 1.5, y * s + 1.5, s - 3, s - 3);
+    g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x * s + 2.5, y * s + 2.5, s - 6, 2);
+    g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(x * s + 2.5, y * s + s - 4.5, s - 5, 2);
+    if (r() < 0.09) { g.strokeStyle = 'rgba(30,30,28,0.65)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x * s + r() * s, y * s + 2); g.lineTo(x * s + r() * s, y * s + s - 2); g.stroke(); }
+  }
+  streaks(g, r, 12, '70,42,16', 0, 230);
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: 0.5, seed, bottom: 0.7, top: 0.3, tint: [26, 30, 20], thr: 0.4 });
+}
+function drawPad(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed); const n = 4, s = TS / n;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const gr = g.createRadialGradient(x * s + s / 2, y * s + s / 2, 4, x * s + s / 2, y * s + s / 2, s * 0.75);
+    gr.addColorStop(0, '#d5cfb8'); gr.addColorStop(0.7, '#a09882'); gr.addColorStop(1, '#5c5648');
+    g.fillStyle = gr; g.fillRect(x * s, y * s, s, s);
+  }
+  g.strokeStyle = 'rgba(40,36,28,0.8)'; g.lineWidth = 2;
+  for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s, TS); g.moveTo(0, i * s); g.lineTo(TS, i * s); g.stroke(); }
+  for (let y = 0; y <= n; y++) for (let x = 0; x <= n; x++) { g.fillStyle = '#3a3428'; g.beginPath(); g.arc(x * s, y * s, 4.5, 0, TAU); g.fill(); }
+  const tears = o.tears === undefined ? 2 : o.tears;
+  for (let i = 0; i < tears; i++) {
+    const x = r() * TS, y = r() * TS, a = r() * 3;
+    g.fillStyle = 'rgba(24,20,14,0.92)'; g.beginPath(); g.ellipse(x, y, 3 + r() * 5, 10 + r() * 16, a, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(176,150,96,0.75)'; g.beginPath(); g.ellipse(x + 1, y, 1.5, 6, a, 0, TAU); g.fill();
+  }
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: o.grime === undefined ? 0.6 : o.grime, seed, bottom: 0.6, tint: [54, 42, 22], thr: 0.36 });
+}
+
+/* --- 바닥 / 천장 --- */
+function drawFloor(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed); const n = 4, s = TS / n;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = (r() - 0.5) * 16;
+    g.fillStyle = (x + y) % 2 === 0 ? rgb(108 + v, 116 + v, 102 + v) : rgb(150 + v, 146 + v, 126 + v);
+    g.fillRect(x * s, y * s, s, s);
+  }
+  g.strokeStyle = 'rgba(30,28,22,0.55)'; g.lineWidth = 1.5;
+  for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s, TS); g.moveTo(0, i * s); g.lineTo(TS, i * s); g.stroke(); }
+  for (let i = 0; i < 34; i++) {
+    const x = r() * TS, y = r() * TS, a = r() * TAU, l = 6 + r() * 30;
+    g.strokeStyle = 'rgba(20,18,14,0.26)'; g.lineWidth = 0.5 + r() * 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  cracks(g, r, 1);
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: 0.7, seed, tint: [26, 24, 18], thr: 0.34, speck: 14 });
+}
+function drawTileFloor(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed); const n = 8, s = TS / n;
+  g.fillStyle = '#3d403c'; g.fillRect(0, 0, TS, TS);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 132 + r() * 30; g.fillStyle = rgb(v, v + 3, v - 2); g.fillRect(x * s + 1, y * s + 1, s - 2, s - 2);
+    if (r() < 0.07) { g.fillStyle = 'rgba(40,40,36,0.8)'; g.fillRect(x * s + 1, y * s + 1, s - 2, s - 2); }
+  }
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: 0.8, seed, tint: [22, 26, 18], thr: 0.32, speck: 12 });
+}
+function drawConcFloor(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed);
+  g.fillStyle = '#504f4a'; g.fillRect(0, 0, TS, TS);
+  pixels(g, (d) => {
+    for (let j = 0, i = 0; j < TS * TS; j++, i += 4) {
+      const n = (N1[j] - 0.5) * 44 + (N4[j] - 0.5) * 30; let w = clamp((N3[j] - 0.58) * 9, 0, 1) * 34;
+      d[i] += n - w; d[i + 1] += n - w; d[i + 2] += n - w * 0.7;
+    }
+  });
+  cracks(g, r, 4);
+  if (o.extra) o.extra(g, r);
+  grime(g, { amt: 0.55, seed, tint: [12, 14, 10], thr: 0.4, speck: 16 });
+}
+function drawCeil(g, seed, o) {
+  o = o || {}; const r = mulberry32(seed); const s = TS / 2;
+  g.fillStyle = '#9c9c8e'; g.fillRect(0, 0, TS, TS);
+  for (let i = 0; i < 900; i++) { g.fillStyle = 'rgba(40,40,34,0.5)'; g.fillRect(r() * TS, r() * TS, 1.2, 1.2); }
+  for (let i = 0; i < 4; i++) {
+    const x = r() * TS, y = r() * TS, q = 16 + r() * 40;
+    const gr = g.createRadialGradient(x, y, q * 0.3, x, y, q);
+    gr.addColorStop(0, 'rgba(96,70,30,0.1)'); gr.addColorStop(0.85, 'rgba(84,58,24,0.42)'); gr.addColorStop(1, 'rgba(84,58,24,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, q, 0, TAU); g.fill();
+  }
+  if (o.hole) {
+    g.fillStyle = '#060606'; g.fillRect(4, 4, s - 8, s - 8);
+    g.strokeStyle = '#2c2a26'; g.lineWidth = 5; g.beginPath(); g.moveTo(10, 40); g.lineTo(s - 10, 52); g.stroke();
+    g.strokeStyle = '#1b1b1b'; g.lineWidth = 2; g.beginPath(); g.moveTo(30, 6); g.quadraticCurveTo(60, 70, 96, s - 8); g.stroke();
+  }
+  g.strokeStyle = '#3e3e38'; g.lineWidth = 4;
+  for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s, TS); g.moveTo(0, i * s); g.lineTo(TS, i * s); g.stroke(); }
+  grime(g, { amt: 0.5, seed, tint: [40, 30, 16], thr: 0.4 });
+}
+
+/* --- 문 --- */
+function drawDoor(g, label, style) {
+  const seed = label.length * 977 + label.charCodeAt(0) * 31 + style.length * 7;
+  const r = mulberry32(seed);
+  const base = style === 'cell' ? [72, 80, 86] : style === 'base' ? [98, 80, 64] : [118, 134, 122];
+  g.fillStyle = rgb(base[0], base[1], base[2]); g.fillRect(0, 0, TS, TS);
+  g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, 0, TS, 5); g.fillRect(0, 0, 5, TS); g.fillRect(TS - 5, 0, 5, TS);
+  g.fillStyle = 'rgba(255,255,255,0.09)'; g.fillRect(5, 5, TS - 10, 2);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (style === 'cell') {
+    const rivet = (x, y) => { g.fillStyle = '#2c3236'; g.beginPath(); g.arc(x, y, 3.6, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(x - 1, y - 1, 1.3, 0, TAU); g.fill(); };
+    for (let i = 0; i < 9; i++) { rivet(14 + i * 28.5, 14); rivet(14 + i * 28.5, TS - 14); }
+    for (let i = 1; i < 8; i++) { rivet(14, 14 + i * 28.5); rivet(TS - 14, 14 + i * 28.5); }
+    g.fillStyle = '#040404'; g.fillRect(78, 56, 100, 16); g.strokeStyle = '#262a2c'; g.lineWidth = 4; g.strokeRect(76, 54, 104, 20);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(70, 196, 116, 30); g.lineWidth = 3; g.strokeRect(70, 196, 116, 30);
+    g.font = 'bold 36px Menlo,Consolas,monospace'; g.fillStyle = 'rgba(222,222,206,0.86)'; g.fillText(label, TS / 2, 124);
+    g.fillStyle = '#191b1d'; g.fillRect(186, 150, 56, 12); g.fillRect(192, 143, 10, 26);
+  } else {
+    g.fillStyle = '#090c0d'; g.fillRect(92, 26, 72, 56);
+    g.strokeStyle = 'rgba(130,140,140,0.3)'; g.lineWidth = 1;
+    g.save(); g.beginPath(); g.rect(92, 26, 72, 56); g.clip();
+    for (let i = -8; i < 20; i++) { g.beginPath(); g.moveTo(92 + i * 9, 26); g.lineTo(92 + i * 9 + 56, 82); g.moveTo(92 + i * 9 + 56, 26); g.lineTo(92 + i * 9, 82); g.stroke(); }
+    g.restore();
+    g.strokeStyle = '#2f352e'; g.lineWidth = 4; g.strokeRect(90, 24, 76, 60);
+    g.fillStyle = style === 'base' ? '#d6b93a' : '#d8d6c6'; g.fillRect(66, 96, 124, 32);
+    g.strokeStyle = '#2a2a2a'; g.lineWidth = 1.5; g.strokeRect(66, 96, 124, 32);
+    g.fillStyle = '#141414'; g.font = `bold ${label.length > 4 ? 20 : 24}px ${GOTHIC}`; g.fillText(label, TS / 2, 113);
+    g.fillStyle = '#2b2e2c'; g.fillRect(28, 148, 200, 12); g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(28, 148, 200, 3);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(28, 160, 200, 3);
+    g.fillStyle = 'rgba(150,155,150,0.45)'; g.fillRect(14, 206, TS - 28, 38);
+  }
+  streaks(g, r, 8, '54,28,10', 0, 200);
+  for (let i = 0; i < 14; i++) {
+    const x = r() * TS, y = 150 + r() * 100; g.strokeStyle = 'rgba(20,16,12,0.5)'; g.lineWidth = 0.8;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 34, y + (r() - 0.5) * 20); g.stroke();
+  }
+  grime(g, { amt: 0.55, seed, bottom: 0.75, tint: style === 'hosp' ? [40, 34, 20] : [46, 22, 10], thr: 0.36 });
+}
+const doorTexCache = {};
+function doorTex(label, style) {
+  const k = style + '|' + label;
+  if (doorTexCache[k] === undefined) doorTexCache[k] = newTex(null, (g) => drawDoor(g, label, style));
+  return doorTexCache[k];
+}
+
+/* --- 발전기 제어반 / 셔터 스위치 --- */
+function drawGenPanel(g, fuses, on) {
+  drawConcWall(g, 301, {});
+  g.fillStyle = '#4d5a50'; g.fillRect(26, 28, 204, 200); g.strokeStyle = '#1b221d'; g.lineWidth = 4; g.strokeRect(26, 28, 204, 200);
+  g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(30, 32, 196, 4);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#d8d4bd'; g.fillRect(44, 40, 168, 26); g.fillStyle = '#181818'; g.font = `bold 16px ${GOTHIC}`; g.fillText('비상 발전기 제어반', 128, 54);
+  for (let i = 0; i < 3; i++) {
+    const x = 70 + i * 58, y = 106;
+    g.fillStyle = '#131313'; g.beginPath(); g.arc(x, y, 21, 0, TAU); g.fill(); g.strokeStyle = '#8a8a80'; g.lineWidth = 3; g.stroke();
+    if (i < fuses) {
+      g.fillStyle = '#d9d3b8'; g.fillRect(x - 9, y - 16, 18, 32);
+      g.fillStyle = '#9a9a94'; g.fillRect(x - 9, y - 16, 18, 7); g.fillRect(x - 9, y + 9, 18, 7);
+      g.fillStyle = on ? '#8dff9a' : '#c8a040'; g.fillRect(x - 3, y - 7, 6, 14);
+    }
+    g.fillStyle = '#c9c5b0'; g.font = '11px Menlo,monospace'; g.fillText('F' + (i + 1), x, y + 32);
+  }
+  g.fillStyle = '#e6e2cc'; g.beginPath(); g.arc(112, 184, 25, 0, TAU); g.fill(); g.strokeStyle = '#222'; g.lineWidth = 2; g.stroke();
+  const na = on ? -0.5 : -2.5; g.strokeStyle = '#b01010'; g.lineWidth = 2; g.beginPath(); g.moveTo(112, 184); g.lineTo(112 + Math.cos(na) * 20, 184 + Math.sin(na) * 20); g.stroke();
+  const lamp = (x, y, c) => { g.fillStyle = '#111'; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(x, y, 6.5, 0, TAU); g.fill(); };
+  lamp(56, 168, on ? '#40ff5a' : '#16301a'); lamp(56, 198, on ? '#3a1212' : '#ff3628');
+  g.fillStyle = '#0d0d0d'; g.fillRect(180, 148, 16, 66);
+  const ly = on ? 200 : 158; g.fillStyle = '#a81c1c'; g.fillRect(168, ly - 9, 40, 18); g.fillStyle = '#e2503e'; g.fillRect(168, ly - 9, 40, 5);
+  g.fillStyle = '#c9c5b0'; g.font = `10px ${GOTHIC}`; g.fillText('가동', 216, 200); g.fillText('정지', 216, 158);
+  grime(g, { amt: 0.3, seed: 303, tint: [20, 20, 14], thr: 0.42 });
+}
+function drawSwitch(g, st) {
+  drawHospWall(g, 77, { peel: 0.7, cracks: 1, grime: 0.4 });
+  g.fillStyle = '#676b65'; g.fillRect(122, 0, 12, 66);
+  g.fillStyle = '#b8951f'; g.fillRect(74, 62, 108, 150); g.strokeStyle = '#3a2f0a'; g.lineWidth = 3; g.strokeRect(74, 62, 108, 150);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#17150c'; g.font = `bold 17px ${GOTHIC}`; g.fillText('정문 셔터', 128, 80);
+  const lampC = st === 0 ? '#2a1616' : st === 1 ? '#ff4030' : '#48ff66';
+  g.fillStyle = '#111'; g.beginPath(); g.arc(128, 106, 10, 0, TAU); g.fill(); g.fillStyle = lampC; g.beginPath(); g.arc(128, 106, 7, 0, TAU); g.fill();
+  g.fillStyle = '#111'; g.fillRect(100, 124, 56, 34); g.fillStyle = st === 2 ? '#3fd45a' : '#1f6b30'; g.fillRect(104, 128, 48, 26);
+  g.fillStyle = '#111'; g.fillRect(100, 166, 56, 34); g.fillStyle = '#8a1c1c'; g.fillRect(104, 170, 48, 26);
+  g.fillStyle = '#e8e8d8'; g.font = `bold 13px ${GOTHIC}`; g.fillText('▲ 열림', 128, 141); g.fillText('▼ 닫힘', 128, 183);
+  grime(g, { amt: 0.25, seed: 79, tint: [26, 22, 14], thr: 0.44 });
+}
+
+/* --- 적(4-07) --- */
+function limb(g, pts, w, col) {
+  g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.stroke();
+}
+function hand(g, x, y, ang, s, col) {
+  g.strokeStyle = col; g.lineCap = 'round'; g.lineWidth = 1.5;
+  for (let i = 0; i < 5; i++) { const a = ang + (i - 2) * 0.3, l = s * (i === 0 || i === 4 ? 0.72 : 1); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+}
+function clawHand(g, x, y, ang, s, skin, dark) {        // 이쪽으로 뻗은 손(크게)
+  for (const pass of [0, 1]) {
+    g.strokeStyle = pass ? skin : dark; g.fillStyle = pass ? skin : dark; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = (pass ? 1.5 : 3.1) * s;
+    g.beginPath(); g.ellipse(x, y, (pass ? 4.2 : 5.4) * s, (pass ? 5.4 : 6.6) * s, ang + Math.PI / 2, 0, TAU); g.fill();
+    for (let i = 0; i < 5; i++) {
+      const a = ang + (i - 2) * 0.46, l1 = (i === 0 ? 7 : 11) * s, l2 = (i === 0 ? 6 : 10) * s, bend = (i - 2) * -0.3 + 0.25;
+      const mx = x + Math.cos(a) * l1, my = y + Math.sin(a) * l1;
+      g.beginPath(); g.moveTo(x + Math.cos(a) * 3 * s, y + Math.sin(a) * 3 * s); g.lineTo(mx, my); g.lineTo(mx + Math.cos(a + bend) * l2, my + Math.sin(a + bend) * l2); g.stroke();
+    }
+  }
+}
+function enemyHead(g, cx, pose, eyesOnly) {
+  g.save(); g.translate(cx + (pose ? -1 : 3), pose ? 47 : 44); g.rotate(pose ? -0.34 : 0.24); if (pose) g.scale(1.14, 1.14);
+  if (eyesOnly) {
+    g.fillStyle = '#f2ecc8';
+    g.beginPath(); g.ellipse(-5, -3, 1.5, 2.8, 0, 0, TAU); g.fill();
+    g.beginPath(); g.ellipse(5, -3, 1.5, 2.8, 0, 0, TAU); g.fill();
+    g.restore(); return;
+  }
+  g.fillStyle = '#4a493f'; g.fillRect(-4, 10, 8, 18);
+  g.fillStyle = '#9b9b8a'; g.beginPath(); g.ellipse(0, 0, 12.5, 17, 0, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(30,30,24,0.42)'; g.beginPath(); g.ellipse(5, 3, 8, 14, 0, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(20,18,14,0.5)'; g.fillRect(-11, -9.5, 22, 4);                    // 눈두덩 그늘
+  g.fillStyle = '#040303';
+  g.beginPath(); g.ellipse(-5, -3, 4.2, 5.4, 0.1, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(5, -3, 4.2, 5.4, -0.1, 0, TAU); g.fill();
+  g.fillStyle = '#b9b49a'; g.beginPath(); g.arc(-5, -2.6, 0.8, 0, TAU); g.fill(); g.beginPath(); g.arc(5, -2.6, 0.8, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(8,6,6,0.85)'; g.lineWidth = 1.1; g.lineCap = 'round';
+  for (const ex of [-5, 5]) { g.beginPath(); g.moveTo(ex - 1.5, 1); g.lineTo(ex - 2 + (ex > 0 ? 1 : 0), 12); g.moveTo(ex + 1.5, 1); g.lineTo(ex + 1, 8); g.stroke(); }
+  g.fillStyle = '#040303'; g.beginPath(); g.ellipse(0, pose ? 11 : 9.5, pose ? 5.8 : 3.6, pose ? 9.5 : 4.6, 0, 0, TAU); g.fill();
+  if (pose) { g.fillStyle = '#8f8b74'; for (let i = 0; i < 5; i++) g.fillRect(-4.4 + i * 1.9, 3.2 + Math.abs(i - 2) * 0.7, 1.3, 2.4); }
+  g.fillStyle = 'rgba(52,5,5,0.92)'; g.fillRect(-2.2, pose ? 19 : 13, 1.7, 13); g.fillRect(1, pose ? 19 : 13.5, 1.3, 9);
+  // 머리카락
+  g.fillStyle = '#080706'; g.beginPath(); g.ellipse(0, -8, 14, 12.5, 0, Math.PI, TAU); g.fill();
+  g.fillRect(-15, -9, 7.5, 40); g.fillRect(9.5, -9, 5, 34);
+  g.strokeStyle = '#080706';
+  for (let i = 0; i < 12; i++) {
+    const sx = -14.5 + i * 0.95, len = 52 + ((i * 37) % 62);
+    g.lineWidth = 1 + (i % 3) * 0.75; g.beginPath(); g.moveTo(sx, -12); g.quadraticCurveTo(sx - 3 + (i % 5), len * 0.5, sx + ((i * 13) % 9) - 5, len); g.stroke();
+  }
+  for (let i = 0; i < 9; i++) {
+    const sx = 7 + i * 0.9, len = 44 + ((i * 29) % 56);
+    g.lineWidth = 1 + (i % 2) * 0.8; g.beginPath(); g.moveTo(sx, -12); g.quadraticCurveTo(sx + 3 - (i % 4), len * 0.5, sx + ((i * 11) % 7) - 1, len); g.stroke();
+  }
+  for (let i = 0; i < 6; i++) { const sx = 1.5 + i * 1.0; g.lineWidth = 0.9; g.beginPath(); g.moveTo(sx, -14); g.lineTo(sx + (i % 3) - 1.5, -5 + ((i * 37) % 13)); g.stroke(); }
+  g.restore();
+}
+function drawEnemy(g, pose) {
+  g.save(); g.scale(TS / 135, 1);
+  const cx = 67, skin = '#77766a', skinD = '#3a3933';
+  if (pose) { g.translate(cx, 256); g.rotate(-0.045); g.translate(-cx, -256); }
+  limb(g, [cx - 8, 192, cx - 10, 224, cx - 8, 249], 6, skinD); limb(g, [cx + 7, 192, cx + 9, 224, cx + 7, 249], 6, skinD);
+  limb(g, [cx - 9, 192, cx - 11, 224, cx - 9, 249], 2.4, skin); limb(g, [cx + 6, 192, cx + 8, 224, cx + 6, 249], 2.4, skin);
+  g.fillStyle = skinD; g.beginPath(); g.ellipse(cx - 10, 252, 7, 3.4, 0, 0, TAU); g.fill(); g.beginPath(); g.ellipse(cx + 9, 252, 7, 3.4, 0, 0, TAU); g.fill();
+  // 환자복
+  const gg = g.createLinearGradient(cx - 24, 0, cx + 24, 0);
+  gg.addColorStop(0, '#24231f'); gg.addColorStop(0.35, '#615f57'); gg.addColorStop(0.62, '#55534c'); gg.addColorStop(1, '#1f1e1b');
+  g.fillStyle = gg; g.beginPath(); g.moveTo(cx - 18, 68); g.quadraticCurveTo(cx - 10, 58, cx, 60); g.quadraticCurveTo(cx + 10, 58, cx + 18, 68); g.lineTo(cx + 22, 196);
+  for (let x = cx + 22; x >= cx - 22; x -= 4) g.lineTo(x, 196 + ((x * 7) % 12));
+  g.closePath(); g.fill();
+  g.fillStyle = '#4e4c45'; g.beginPath(); g.moveTo(cx - 18, 67); g.lineTo(cx - 27, 100); g.lineTo(cx - 17, 103); g.lineTo(cx - 12, 74); g.fill();
+  g.beginPath(); g.moveTo(cx + 18, 67); g.lineTo(cx + 27, 100); g.lineTo(cx + 17, 103); g.lineTo(cx + 12, 74); g.fill();
+  g.globalCompositeOperation = 'source-atop';
+  g.lineWidth = 1.2; g.strokeStyle = 'rgba(16,16,12,0.5)';
+  for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(cx + i * 4.5, 84); g.quadraticCurveTo(cx + i * 5.5 + (i % 2) * 2, 140, cx + i * 6.6, 206); g.stroke(); }
+  const hg = g.createLinearGradient(0, 140, 0, 208); hg.addColorStop(0, 'rgba(18,12,7,0)'); hg.addColorStop(1, 'rgba(18,12,7,0.82)');
+  g.fillStyle = hg; g.fillRect(cx - 30, 140, 60, 70);
+  const rb = mulberry32(pose + 5);
+  blob(g, rb, cx - 1, 98, 11, 'rgba(40,9,7,0.9)'); blob(g, rb, cx + 2, 150, 9, 'rgba(34,8,6,0.85)'); blob(g, rb, cx - 6, 184, 10, 'rgba(30,7,5,0.85)');
+  g.fillStyle = 'rgba(38,8,6,0.88)'; g.fillRect(cx - 5, 98, 2.4, 62); g.fillRect(cx + 1, 102, 1.6, 44); g.fillRect(cx - 9, 104, 1.4, 30); g.fillRect(cx + 5, 150, 1.6, 40);
+  g.globalCompositeOperation = 'source-over';
+  if (pose === 0) {
+    limb(g, [cx - 22, 98, cx - 26, 150, cx - 23, 207], 5.2, skinD); limb(g, [cx - 23, 98, cx - 27, 150, cx - 24, 207], 2.2, skin);
+    limb(g, [cx + 22, 98, cx + 27, 152, cx + 25, 203], 5.2, skinD); limb(g, [cx + 21, 98, cx + 26, 152, cx + 24, 203], 2.2, skin);
+    hand(g, cx - 23, 207, 1.62, 17, skin); hand(g, cx + 25, 203, 1.5, 17, skin);
+  } else {
+    limb(g, [cx - 20, 98, cx - 31, 112, cx - 30, 118], 7, skinD); limb(g, [cx - 21, 98, cx - 32, 112, cx - 31, 118], 3, skin);
+    limb(g, [cx + 20, 98, cx + 32, 108, cx + 33, 112], 7, skinD); limb(g, [cx + 19, 98, cx + 31, 108, cx + 32, 112], 3, skin);
+    clawHand(g, cx - 31, 116, -1.85, 1.25, skin, skinD); clawHand(g, cx + 34, 108, -1.28, 1.35, skin, skinD);
+  }
+  enemyHead(g, cx, pose, false);
+  g.restore();
+  pixels(g, (d) => {
+    for (let j = 0, i = 0; j < TS * TS; j++, i += 4) {
+      if (d[i + 3] < 8) continue;
+      const k = 0.55 + N4[j] * 0.42; d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; d[i + 3] = d[i + 3] > 110 ? 255 : 0;
+    }
+  });
+}
+function drawScareFace(c) {
+  const g = c.getContext('2d'); const S = c.width; const r = mulberry32(99);
+  g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+  const gr = g.createRadialGradient(S / 2, S * 0.5, 10, S / 2, S * 0.5, S * 0.52);
+  gr.addColorStop(0, '#c9c8b4'); gr.addColorStop(0.55, '#8e8d7c'); gr.addColorStop(1, '#16150f');
+  g.fillStyle = gr; g.beginPath(); g.ellipse(S / 2, S * 0.52, S * 0.36, S * 0.5, 0, 0, TAU); g.fill();
+  g.fillStyle = '#020202';
+  g.beginPath(); g.ellipse(S * 0.33, S * 0.4, S * 0.1, S * 0.13, 0.15, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(S * 0.67, S * 0.4, S * 0.1, S * 0.13, -0.15, 0, TAU); g.fill();
+  g.fillStyle = '#f4f0d8';
+  g.beginPath(); g.arc(S * 0.34, S * 0.41, S * 0.012, 0, TAU); g.fill(); g.beginPath(); g.arc(S * 0.66, S * 0.41, S * 0.012, 0, TAU); g.fill();
+  g.fillStyle = '#020202'; g.beginPath(); g.ellipse(S / 2, S * 0.76, S * 0.13, S * 0.2, 0, 0, TAU); g.fill();
+  g.fillStyle = '#8a8672'; for (let i = 0; i < 7; i++) g.fillRect(S * 0.4 + i * S * 0.03, S * 0.585 + Math.abs(i - 3) * 2, S * 0.022, S * 0.035);
+  g.strokeStyle = 'rgba(60,6,6,0.9)'; g.lineWidth = 3;
+  for (const ex of [0.33, 0.67]) for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(S * ex + (i - 1) * 8, S * 0.5); g.lineTo(S * ex + (i - 1) * 9 + (r() - 0.5) * 8, S * (0.62 + r() * 0.2)); g.stroke(); }
+  g.strokeStyle = 'rgba(30,30,26,0.5)'; g.lineWidth = 1;
+  for (let i = 0; i < 30; i++) { let x = S * (0.2 + r() * 0.6), y = S * (0.1 + r() * 0.8), a = r() * TAU; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { a += (r() - 0.5); x += Math.cos(a) * 7; y += Math.sin(a) * 7; g.lineTo(x, y); } g.stroke(); }
+  g.strokeStyle = '#050505'; g.lineCap = 'round';
+  for (let i = 0; i < 70; i++) {
+    const x = r() * S; g.lineWidth = 1 + r() * 4;
+    g.beginPath(); g.moveTo(x, -4); g.quadraticCurveTo(x + (r() - 0.5) * 60, S * 0.3, x + (r() - 0.5) * 50, S * (0.25 + r() * 0.75 * (Math.abs(x / S - 0.5) * 2 + 0.25))); g.stroke();
+  }
+  const im = g.getImageData(0, 0, S, S), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (r() - 0.5) * 50; d[i] = clamp((d[i] - 20) * 1.25 + n, 0, 255); d[i + 1] = clamp((d[i + 1] - 20) * 1.2 + n, 0, 255); d[i + 2] = clamp((d[i + 2] - 20) * 1.12 + n, 0, 255); }
+  g.putImageData(im, 0, 0);
+}
+
+/* --- 전체 텍스처 생성 --- */
+function buildTextures() {
+  const line = (g, x0, y0, x1, y1) => { g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  // 벽
+  newTex('wall1', (g) => drawHospWall(g, 1, { peel: 0.66, grime: 0.45 }));
+  newTex('wall2', (g) => drawHospWall(g, 2, { peel: 0.58, cracks: 4, grime: 0.6 }));
+  newTex('wall3', (g) => drawHospWall(g, 3, { peel: 0.62, cracks: 3, grime: 0.7 }));
+  newTex('wallblood', (g) => drawHospWall(g, 4, { peel: 0.64, extra: (g2, r) => {
+    handprint(g2, 86, 120, 16, -0.2); handprint(g2, 150, 104, 16, 0.25);
+    g2.fillStyle = 'rgba(60,6,6,0.6)'; g2.fillRect(80, 124, 12, 96); g2.fillRect(144, 108, 12, 120);
+    bloodSplat(g2, r, 190, 70, 14, true);
+  } }));
+  newTex('wallwin', (g) => drawHospWall(g, 5, { peel: 0.7, cracks: 1, grime: 0.35, extra: (g2) => {
+    g2.fillStyle = '#20241f'; g2.fillRect(50, 18, 156, 116);
+    const gr = g2.createLinearGradient(0, 24, 0, 128); gr.addColorStop(0, '#0a1422'); gr.addColorStop(1, '#16263c');
+    g2.fillStyle = gr; g2.fillRect(58, 26, 140, 100);
+    const mg = g2.createRadialGradient(160, 52, 2, 160, 52, 44); mg.addColorStop(0, 'rgba(190,205,230,0.55)'); mg.addColorStop(1, 'rgba(120,150,200,0)');
+    g2.fillStyle = mg; g2.fillRect(58, 26, 140, 100);
+    g2.fillStyle = '#05080a'; for (let i = 0; i < 9; i++) { g2.beginPath(); g2.moveTo(58 + i * 18, 126); g2.lineTo(66 + i * 18, 92 + (i * 37) % 22); g2.lineTo(76 + i * 18, 126); g2.fill(); }
+    g2.fillStyle = '#20241f'; g2.fillRect(125, 26, 6, 100); g2.fillRect(58, 74, 140, 5);
+    for (let i = 0; i < 8; i++) { g2.fillStyle = '#131512'; g2.fillRect(64 + i * 18, 20, 5, 112); g2.fillStyle = 'rgba(160,170,180,0.25)'; g2.fillRect(64 + i * 18, 20, 1.5, 112); }
+    g2.fillStyle = '#131512'; g2.fillRect(50, 44, 156, 4); g2.fillRect(50, 104, 156, 4);
+  } }));
+  // 지하 콘크리트
+  newTex('conc1', (g) => drawConcWall(g, 21, {}));
+  newTex('conc2', (g) => drawConcWall(g, 22, { pipe: true }));
+  newTex('conc3', (g) => drawConcWall(g, 23, { extra: (g2, r) => { bloodSplat(g2, r, 120, 150, 20, true); handprint(g2, 60, 170, 15, 0.4); } }));
+  // 타일
+  newTex('tile1', (g) => drawTileWall(g, 31, {}));
+  newTex('tile2', (g) => drawTileWall(g, 32, { miss: 0.12 }));
+  newTex('tileblood', (g) => drawTileWall(g, 33, { extra: (g2, r) => { bloodSplat(g2, r, 128, 96, 26, true); handprint(g2, 60, 140, 17, -0.3); g2.fillStyle = 'rgba(60,6,6,0.55)'; g2.fillRect(54, 146, 13, 100); } }));
+  // 패딩(격리실)
+  newTex('pad1', (g) => drawPad(g, 41, {}));
+  newTex('pad2', (g) => drawPad(g, 42, { tears: 5 }));
+  newTex('padtally', (g) => drawPad(g, 43, { tears: 1, grime: 0.45, extra: (g2, r) => tally(g2, r, 7) }));
+  newTex('padblood', (g) => drawPad(g, 44, { tears: 3, extra: (g2, r) => {
+    for (let i = 0; i < 4; i++) { const x = 40 + i * 52, y = 70 + r() * 40; handprint(g2, x, y, 15, (r() - 0.5) * 0.6); g2.fillStyle = 'rgba(60,6,6,0.55)'; g2.fillRect(x - 6, y + 4, 12, 150); }
+    g2.strokeStyle = 'rgba(40,14,10,0.85)'; g2.lineWidth = 1.5;
+    for (let i = 0; i < 26; i++) { const x = r() * TS, y = 120 + r() * 110; line(g2, x, y, x + (r() - 0.5) * 8, y + 18 + r() * 26); }
+  } }));
+  newTex('padf', (g) => drawPad(g, 45, { tears: 3, grime: 0.85 }));
+  // 바닥
+  newTex('floor1', (g) => drawFloor(g, 51, {}));
+  newTex('floor2', (g) => drawFloor(g, 52, {}));
+  newTex('floorblood', (g) => drawFloor(g, 53, { extra: (g2, r) => {
+    g2.strokeStyle = 'rgba(54,6,6,0.6)'; g2.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { g2.lineWidth = 6 + r() * 14; g2.beginPath(); g2.moveTo(96 + r() * 60, -10); g2.bezierCurveTo(90 + r() * 70, 80, 100 + r() * 60, 170, 96 + r() * 64, 270); g2.stroke(); }
+    bloodSplat(g2, r, 128, 120, 30, false);
+  } }));
+  newTex('tfloor', (g) => drawTileFloor(g, 61, {}));
+  newTex('tfloorblood', (g) => drawTileFloor(g, 62, { extra: (g2, r) => { bloodSplat(g2, r, 128, 128, 44, false); bloodSplat(g2, r, 60, 200, 18, false); } }));
+  newTex('cfloor', (g) => drawConcFloor(g, 71, {}));
+  newTex('cfloor2', (g) => drawConcFloor(g, 72, {}));
+  newTex('cfloorblood', (g) => drawConcFloor(g, 73, { extra: (g2, r) => {
+    g2.strokeStyle = 'rgba(50,5,5,0.62)'; g2.lineCap = 'round';
+    for (let i = 0; i < 6; i++) { g2.lineWidth = 8 + r() * 12; g2.beginPath(); g2.moveTo(100 + r() * 50, -10); g2.bezierCurveTo(80 + r() * 90, 90, 90 + r() * 80, 180, 100 + r() * 56, 270); g2.stroke(); }
+    bloodSplat(g2, r, 120, 140, 34, false);
+  } }));
+  // 천장
+  newTex('ceil1', (g) => drawCeil(g, 81, {}));
+  newTex('ceil2', (g) => drawCeil(g, 82, { hole: true }));
+  newTex('cceil', (g) => {
+    drawConcFloor(g, 83, {});
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 96, TS, 12);
+    const gr = g.createLinearGradient(0, 80, 0, 100); gr.addColorStop(0, '#2a211b'); gr.addColorStop(0.4, '#6c5040'); gr.addColorStop(1, '#17110d');
+    g.fillStyle = gr; g.fillRect(0, 80, TS, 20);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(0, 0, TS, TS);
+  });
+  // 소품 재질
+  newTex('frame', (g) => { g.fillStyle = '#3d423c'; g.fillRect(0, 0, TS, TS); const r = mulberry32(90); streaks(g, r, 10, '20,16,10', 0, 240); grime(g, { amt: 0.6, seed: 90, bottom: 0.5, tint: [22, 18, 12] }); });
+  newTex('metal', (g) => {
+    g.fillStyle = '#737a74'; g.fillRect(0, 0, TS, TS); const r = mulberry32(91);
+    for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(255,255,255,${0.02 + r() * 0.04})`; g.fillRect(0, r() * TS, TS, 1); }
+    grime(g, { amt: 0.85, seed: 91, tint: [70, 38, 16], thr: 0.42, speck: 16 });
+  });
+  newTex('matt', (g) => {
+    for (let x = 0; x < TS; x += 16) { g.fillStyle = (x / 16) % 2 ? '#aab0b2' : '#5f6f84'; g.fillRect(x, 0, 16, TS); }
+    const r = mulberry32(92);
+    for (const [x, y, q] of [[150, 110, 60], [70, 190, 36]]) { const gr = g.createRadialGradient(x, y, 4, x, y, q); gr.addColorStop(0, 'rgba(90,60,24,0.75)'); gr.addColorStop(0.8, 'rgba(84,50,20,0.5)'); gr.addColorStop(1, 'rgba(84,50,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, TS, TS); }
+    bloodSplat(g, r, 110, 60, 20, false);
+    grime(g, { amt: 0.6, seed: 92, tint: [40, 32, 20] });
+  });
+  newTex('matts', (g) => { g.fillStyle = '#8a8f8c'; g.fillRect(0, 0, TS, TS); for (let x = 0; x < TS; x += 16) { g.fillStyle = 'rgba(60,70,90,0.5)'; g.fillRect(x, 0, 8, TS); } grime(g, { amt: 0.7, seed: 93, tint: [40, 30, 18] }); });
+  newTex('locker', (g) => {
+    const r = mulberry32(94); g.fillStyle = '#66756d'; g.fillRect(0, 0, TS, TS);
+    for (let k = 0; k < 2; k++) {
+      const x = k * 128; g.strokeStyle = '#27302b'; g.lineWidth = 4; g.strokeRect(x + 4, 4, 120, TS - 8);
+      for (let i = 0; i < 4; i++) { g.fillStyle = '#161b18'; g.fillRect(x + 28, 24 + i * 12, 72, 5); }
+      g.fillStyle = '#d8d4c0'; g.fillRect(x + 44, 84, 40, 16); g.fillStyle = '#20241f'; g.fillRect(x + 100, 126, 8, 30);
+    }
+    g.fillStyle = '#060606'; g.fillRect(124, 60, 5, 190);
+    streaks(g, r, 8, '70,36,12', 0, 220);
+    grime(g, { amt: 0.7, seed: 94, bottom: 0.6, tint: [56, 30, 12] });
+  });
+  newTex('shelf', (g) => {
+    const r = mulberry32(95); g.fillStyle = '#0c0b09'; g.fillRect(0, 0, TS, TS);
+    g.fillStyle = '#3d3528'; g.fillRect(0, 0, 8, TS); g.fillRect(TS - 8, 0, 8, TS);
+    for (let s = 0; s < 5; s++) {
+      const y = 8 + s * 50; g.fillStyle = '#4a4032'; g.fillRect(0, y + 42, TS, 8);
+      let x = 12;
+      while (x < TS - 24) {
+        const w = 8 + r() * 26, h = 12 + r() * 28; const t = r();
+        g.fillStyle = t < 0.3 ? rgb(120 + r() * 40, 110 + r() * 30, 80 + r() * 20) : t < 0.6 ? rgb(60 + r() * 30, 70 + r() * 40, 70 + r() * 30) : rgb(90 + r() * 30, 50 + r() * 20, 40 + r() * 20);
+        if (r() < 0.8) g.fillRect(x, y + 42 - h, w, h);
+        if (r() < 0.3) { g.fillStyle = 'rgba(230,225,200,0.6)'; g.fillRect(x + 2, y + 42 - h + 4, w - 4, 5); }
+        x += w + 2 + r() * 10;
+      }
+    }
+    grime(g, { amt: 0.7, seed: 95, tint: [18, 14, 10] });
+  });
+  newTex('wood', (g) => {
+    const r = mulberry32(96); g.fillStyle = '#4c3a28'; g.fillRect(0, 0, TS, TS);
+    for (let i = 0; i < 120; i++) { g.strokeStyle = `rgba(${r() < 0.5 ? '20,12,6' : '110,84,56'},${0.1 + r() * 0.2})`; g.lineWidth = 0.6 + r() * 1.5; const y = r() * TS; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(80, y + (r() - 0.5) * 12, 170, y + (r() - 0.5) * 12, TS, y + (r() - 0.5) * 8); g.stroke(); }
+    grime(g, { amt: 0.6, seed: 96, tint: [18, 12, 8] });
+  });
+  newTex('deskfront', (g) => {
+    const r = mulberry32(97); g.fillStyle = '#463524'; g.fillRect(0, 0, TS, TS);
+    for (let k = 0; k < 2; k++) for (let j = 0; j < 2; j++) {
+      const x = 10 + k * 124, y = 16 + j * 116; g.strokeStyle = '#1e150c'; g.lineWidth = 3; g.strokeRect(x, y, 112, 104);
+      g.fillStyle = '#8d8770'; g.fillRect(x + 40, y + 44, 32, 8);
+    }
+    streaks(g, r, 6, '14,10,6', 0, 200); grime(g, { amt: 0.6, seed: 97, tint: [18, 12, 8], bottom: 0.5 });
+  });
+  newTex('desktop', (g) => {
+    const r = mulberry32(98); g.fillStyle = '#4c3a28'; g.fillRect(0, 0, TS, TS);
+    for (let i = 0; i < 9; i++) { g.save(); g.translate(30 + r() * 190, 30 + r() * 190); g.rotate(r() * TAU); g.fillStyle = rgb(196 + r() * 24, 190 + r() * 20, 160 + r() * 20); g.fillRect(-26, -34, 52, 68); g.fillStyle = 'rgba(40,40,40,0.5)'; for (let l = 0; l < 7; l++) g.fillRect(-20, -26 + l * 8, 20 + r() * 20, 1.5); g.restore(); }
+    g.fillStyle = '#16130f'; g.fillRect(170, 26, 60, 44); g.fillStyle = '#2a2622'; g.fillRect(176, 32, 20, 32);
+    grime(g, { amt: 0.55, seed: 98, tint: [20, 14, 8] });
+  });
+  newTex('crate', (g) => {
+    const r = mulberry32(99); g.fillStyle = '#6a5438'; g.fillRect(0, 0, TS, TS);
+    for (let i = 0; i < 5; i++) { g.fillStyle = `rgba(20,14,8,${0.5})`; g.fillRect(0, i * 51 + 48, TS, 3); }
+    g.fillStyle = '#4e3c26'; g.fillRect(0, 0, 22, TS); g.fillRect(TS - 22, 0, 22, TS); g.fillRect(0, 0, TS, 22); g.fillRect(0, TS - 22, TS, 22);
+    g.save(); g.translate(128, 128); g.rotate(-0.08); g.fillStyle = 'rgba(20,16,12,0.7)'; g.font = `bold 26px ${GOTHIC}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('의료용품', 0, -12); g.font = 'bold 16px Menlo,monospace'; g.fillText('MOUN HOSP.', 0, 20); g.restore();
+    streaks(g, r, 6, '14,10,6', 0, 200); grime(g, { amt: 0.65, seed: 99, tint: [22, 16, 10] });
+  });
+  newTex('machine', (g) => {
+    const r = mulberry32(100); g.fillStyle = '#3e4a40'; g.fillRect(0, 0, TS, TS);
+    g.strokeStyle = '#161c18'; g.lineWidth = 4; g.strokeRect(6, 6, TS - 12, TS - 12);
+    for (let i = 0; i < 9; i++) { g.fillStyle = '#0c0f0d'; g.fillRect(24, 26 + i * 11, 110, 6); }
+    for (const [x, y] of [[182, 52], [182, 112]]) { g.fillStyle = '#d8d4bd'; g.beginPath(); g.arc(x, y, 22, 0, TAU); g.fill(); g.strokeStyle = '#111'; g.lineWidth = 2; g.stroke(); g.strokeStyle = '#a01010'; line(g, x, y, x - 14, y + 10); }
+    for (let x = 0; x < TS; x += 24) { g.fillStyle = (x / 24) % 2 ? '#b89b1c' : '#161616'; g.beginPath(); g.moveTo(x, 232); g.lineTo(x + 24, 232); g.lineTo(x + 12, 250); g.lineTo(x - 12, 250); g.fill(); }
+    g.fillStyle = '#6b665a'; g.fillRect(30, 150, 196, 12); g.fillRect(30, 176, 196, 12);
+    for (let i = 0; i < 6; i++) { g.fillStyle = '#1a1a18'; g.beginPath(); g.arc(40 + i * 36, 204, 6, 0, TAU); g.fill(); }
+    streaks(g, r, 10, '60,30,10', 0, 220); grime(g, { amt: 0.75, seed: 100, bottom: 0.5, tint: [40, 22, 10] });
+  });
+  newTex('sheet', (g) => {
+    const r = mulberry32(101); g.fillStyle = '#b9b7a8'; g.fillRect(0, 0, TS, TS);
+    for (let i = 0; i < 22; i++) { const x = r() * TS; const gr = g.createLinearGradient(x, 0, x + 20, 0); gr.addColorStop(0, 'rgba(60,60,52,0)'); gr.addColorStop(0.5, 'rgba(60,60,52,0.35)'); gr.addColorStop(1, 'rgba(60,60,52,0)'); g.fillStyle = gr; g.fillRect(x, 0, 20, TS); }
+    bloodSplat(g, r, 128, 60, 26, false); bloodSplat(g, r, 100, 180, 14, false);
+    grime(g, { amt: 0.6, seed: 101, tint: [70, 56, 30] });
+  });
+  newTex('tvbox', (g) => { g.fillStyle = '#2b2925'; g.fillRect(0, 0, TS, TS); g.strokeStyle = '#0c0b0a'; g.lineWidth = 8; g.strokeRect(4, 4, TS - 8, TS - 8); grime(g, { amt: 0.5, seed: 102, tint: [10, 9, 8] }); });
+  newTex('tvoff', (g) => {
+    g.fillStyle = '#1e1d1a'; g.fillRect(0, 0, TS, TS);
+    const gr = g.createRadialGradient(110, 100, 10, 128, 128, 170); gr.addColorStop(0, '#2a302c'); gr.addColorStop(1, '#070807');
+    g.fillStyle = gr; g.beginPath(); g.roundRect(14, 14, TS - 28, TS - 28, 26); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.05)'; g.beginPath(); g.ellipse(90, 70, 50, 26, -0.5, 0, TAU); g.fill();
+  });
+  newTex('tvstatic', (g) => {
+    const r = mulberry32(103);
+    pixels(g, (d) => { for (let y = 0, i = 0; y < TS; y++) { const band = 0.75 + 0.25 * Math.sin(y * 0.11); for (let x = 0; x < TS; x++, i += 4) { const v = (r() < 0.5 ? 40 : 235) * band * (0.6 + r() * 0.4); d[i] = v * 0.92; d[i + 1] = v; d[i + 2] = v * 1.06; d[i + 3] = 255; } } });
+  });
+  newTex('drawers', (g) => {
+    const r = mulberry32(104); g.fillStyle = '#848a8c'; g.fillRect(0, 0, TS, TS);
+    for (let i = 0; i < 220; i++) { g.fillStyle = `rgba(255,255,255,${0.02 + r() * 0.05})`; g.fillRect(0, r() * TS, TS, 1); }
+    for (let k = 0; k < 2; k++) for (let j = 0; j < 3; j++) {
+      const x = 6 + k * 124, y = 6 + j * 82;
+      g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(x, y, 116, 3); g.fillRect(x, y, 3, 74);
+      g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(x, y + 71, 116, 3); g.fillRect(x + 113, y, 3, 74);
+      g.fillStyle = '#23272a'; g.fillRect(x + 78, y + 28, 26, 14); g.fillStyle = '#5a6064'; g.fillRect(x + 80, y + 30, 22, 4);
+      g.fillStyle = '#d6d2bc'; g.fillRect(x + 14, y + 12, 34, 16); g.fillStyle = '#222'; g.font = 'bold 12px Menlo,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(j * 2 + k + 1), x + 31, y + 21);
+    }
+    g.fillStyle = '#020202'; g.fillRect(6, 170, 116, 9);
+    g.fillStyle = 'rgba(60,6,6,0.7)'; g.fillRect(40, 178, 5, 60); g.fillRect(70, 178, 3, 40); handprint(g, 96, 196, 13, 2.9);
+    streaks(g, r, 10, '70,36,12', 0, 220); grime(g, { amt: 0.5, seed: 104, bottom: 0.5, tint: [40, 28, 14] });
+  });
+  newTex('shutter', (g) => {
+    const r = mulberry32(105);
+    for (let y = 0; y < TS; y += 16) { const gr = g.createLinearGradient(0, y, 0, y + 16); gr.addColorStop(0, '#8a8f8e'); gr.addColorStop(0.55, '#565b5a'); gr.addColorStop(1, '#1e2120'); g.fillStyle = gr; g.fillRect(0, y, TS, 16); }
+    streaks(g, r, 16, '80,40,12', 0, 240); grime(g, { amt: 0.7, seed: 105, bottom: 0.6, tint: [58, 30, 12], thr: 0.4 });
+  });
+  newTex('outside', (g) => {
+    const gr = g.createLinearGradient(0, 0, 0, 170); gr.addColorStop(0, '#0c1830'); gr.addColorStop(1, '#31466a');
+    g.fillStyle = gr; g.fillRect(0, 0, TS, 170);
+    const mg = g.createRadialGradient(186, 48, 4, 186, 48, 70); mg.addColorStop(0, 'rgba(230,236,250,1)'); mg.addColorStop(0.2, 'rgba(200,214,240,0.5)'); mg.addColorStop(1, 'rgba(160,180,230,0)');
+    g.fillStyle = mg; g.fillRect(0, 0, TS, 170);
+    g.fillStyle = '#eef2fa'; g.beginPath(); g.arc(186, 48, 14, 0, TAU); g.fill();
+    g.fillStyle = '#0a0f14'; g.fillRect(0, 160, TS, 96);
+    g.fillStyle = '#04070a'; for (let i = 0; i < 16; i++) { const x = i * 17 - 4, h = 30 + (i * 53) % 46; g.beginPath(); g.moveTo(x, 164); g.lineTo(x + 9, 164 - h); g.lineTo(x + 20, 164); g.fill(); }
+    g.fillStyle = '#28303a'; g.beginPath(); g.moveTo(60, 256); g.lineTo(118, 164); g.lineTo(138, 164); g.lineTo(196, 256); g.fill();
+    g.fillStyle = 'rgba(200,210,230,0.35)'; for (let i = 0; i < 5; i++) g.fillRect(126.5 - i * 0.5, 170 + i * 18, 3 + i, 9 + i * 2);
+  });
+  newTex('exitsign', (g) => {
+    g.scale(1, TS / 104); g.fillStyle = '#0c7f3e'; g.fillRect(0, 0, TS, 104); g.strokeStyle = '#dff5e6'; g.lineWidth = 5; g.strokeRect(5, 5, TS - 10, 94);
+    g.fillStyle = '#eafff0'; g.beginPath(); g.arc(52, 30, 9, 0, TAU); g.fill();
+    g.strokeStyle = '#eafff0'; g.lineWidth = 7; g.lineCap = 'round';
+    line(g, 52, 44, 44, 66); line(g, 44, 66, 30, 84); line(g, 44, 66, 62, 80); line(g, 52, 46, 70, 54); line(g, 50, 46, 34, 56);
+    g.font = `bold 44px ${GOTHIC}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('비상구', 160, 54);
+  });
+  newTex('redlamp', (g) => { const gr = g.createRadialGradient(128, 128, 8, 128, 128, 180); gr.addColorStop(0, '#ff6a50'); gr.addColorStop(1, '#b01208'); g.fillStyle = gr; g.fillRect(0, 0, TS, TS); });
+  newTex('lampoff', (g) => { g.fillStyle = '#2a0c0a'; g.fillRect(0, 0, TS, TS); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(20, 20, 80, 30); });
+  newTex('bulb', (g) => { const gr = g.createRadialGradient(128, 128, 8, 128, 128, 180); gr.addColorStop(0, '#fff6d0'); gr.addColorStop(1, '#e09a3a'); g.fillStyle = gr; g.fillRect(0, 0, TS, TS); });
+  // 제어반 상태별
+  for (let f = 0; f <= 3; f++) newTex('gen' + f, (g) => drawGenPanel(g, f, false));
+  newTex('genon', (g) => drawGenPanel(g, 3, true));
+  for (let s = 0; s <= 2; s++) newTex('sw' + s, (g) => drawSwitch(g, s));
+  // 표지판 / 낙서
+  newTex('sign_name', (g) => drawHospWall(g, 6, { peel: 0.72, cracks: 1, grime: 0.35, extra: (g2) => {
+    g2.fillStyle = '#d9d5c2'; g2.fillRect(22, 26, 212, 100); g2.strokeStyle = '#263a30'; g2.lineWidth = 5; g2.strokeRect(22, 26, 212, 100);
+    g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = '#22352c';
+    g2.font = `900 31px ${BRUSH}`; g2.fillText('모운정신병원', 128, 62);
+    g2.font = `13px ${BRUSH}`; g2.fillText('暮雲精神病院 · 1987', 128, 90);
+    g2.font = `11px ${GOTHIC}`; g2.fillText('환자의 안정이 우리의 사명입니다', 128, 110);
+  } }));
+  newTex('sign_dir', (g) => drawHospWall(g, 7, { peel: 0.72, cracks: 1, grime: 0.35, extra: (g2) => {
+    g2.fillStyle = '#20382c'; g2.fillRect(14, 20, 228, 112); g2.strokeStyle = '#c9c6b2'; g2.lineWidth = 2; g2.strokeRect(18, 24, 220, 104);
+    g2.textAlign = 'left'; g2.textBaseline = 'middle'; g2.fillStyle = '#e4e2d0'; g2.font = `bold 15px ${GOTHIC}`;
+    g2.fillText('←  간호사실 · 진료실 · 약제실', 28, 46); g2.fillText('↑  병실 101~106 · 휴게실', 28, 76); g2.fillText('→  치료실 · 원장실 · 지하', 28, 106);
+  } }));
+  newTex('sign_w4', (g) => drawConcWall(g, 24, { extra: (g2) => {
+    g2.fillStyle = '#c9a51e'; g2.fillRect(24, 50, 208, 96); g2.strokeStyle = '#141414'; g2.lineWidth = 6; g2.strokeRect(24, 50, 208, 96);
+    g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = '#141414';
+    g2.font = `900 36px ${GOTHIC}`; g2.fillText('제 4 병동', 128, 86);
+    g2.font = `bold 13px ${GOTHIC}`; g2.fillText('특수격리 · 관계자 외 출입금지', 128, 124);
+  } }));
+  newTex('txt_here', (g) => drawHospWall(g, 8, { peel: 0.7, cracks: 2, extra: (g2, r) => { bloodText(g2, r, ['여기', '있어'], 54, 56); } }));
+  newTex('txt_up', (g) => drawHospWall(g, 9, { peel: 0.7, cracks: 2, extra: (g2, r) => { bloodText(g2, r, ['올라', '온다'], 52, 54); handprint(g2, 206, 180, 14, 0.3); } }));
+  newTex('txt_no', (g) => drawConcWall(g, 25, { extra: (g2, r) => { bloodText(g2, r, ['들어', '가지', '마'], 50, 50); } }));
+  // --- 스프라이트 (투명 배경) ---
+  newTex('key', (g) => {
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(128, 236, 90, 12, 0, 0, TAU); g.fill();
+    g.save(); g.translate(128, 170); g.rotate(-0.35);
+    g.strokeStyle = '#3a2f14'; g.lineWidth = 26; g.beginPath(); g.arc(-56, 0, 34, 0, TAU); g.stroke(); g.fillStyle = '#3a2f14'; g.fillRect(-26, -14, 136, 28); g.fillRect(64, 8, 20, 36); g.fillRect(92, 8, 16, 28);
+    g.strokeStyle = '#c9ae62'; g.lineWidth = 16; g.beginPath(); g.arc(-56, 0, 34, 0, TAU); g.stroke(); g.fillStyle = '#c9ae62'; g.fillRect(-22, -9, 128, 18); g.fillRect(68, 8, 12, 30); g.fillRect(95, 8, 10, 22);
+    g.fillStyle = 'rgba(255,255,230,0.5)'; g.fillRect(-20, -8, 122, 4);
+    g.restore();
+    g.fillStyle = '#8f1a14'; g.save(); g.translate(64, 112); g.rotate(0.5); g.fillRect(-22, -34, 44, 60); g.fillStyle = '#e8e2c8'; g.fillRect(-15, -22, 30, 20); g.restore();
+  });
+  newTex('fuse', (g) => {
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(128, 232, 100, 12, 0, 0, TAU); g.fill();
+    g.save(); g.translate(128, 176); g.rotate(-0.12);
+    const gr = g.createLinearGradient(0, -38, 0, 38); gr.addColorStop(0, '#f2efe0'); gr.addColorStop(0.5, '#d2ccb0'); gr.addColorStop(1, '#7c775f');
+    g.fillStyle = '#20201a'; g.fillRect(-108, -44, 216, 88);
+    g.fillStyle = gr; g.fillRect(-102, -38, 204, 76);
+    const cg = g.createLinearGradient(0, -38, 0, 38); cg.addColorStop(0, '#e2e2dc'); cg.addColorStop(0.5, '#9c9c96'); cg.addColorStop(1, '#4a4a46');
+    g.fillStyle = cg; g.fillRect(-102, -38, 46, 76); g.fillRect(56, -38, 46, 76);
+    g.fillStyle = '#b8862a'; g.fillRect(-40, -6, 80, 12); g.fillStyle = '#2a2a24'; g.font = 'bold 22px Menlo,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('30A', 0, -22);
+    g.restore();
+  });
+  newTex('batt', (g) => {
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(128, 238, 80, 11, 0, 0, TAU); g.fill();
+    for (const [x, rot] of [[92, -0.08], [164, 0.06]]) {
+      g.save(); g.translate(x, 150); g.rotate(rot);
+      g.fillStyle = '#141414'; g.fillRect(-34, -84, 68, 168);
+      const gr = g.createLinearGradient(-30, 0, 30, 0); gr.addColorStop(0, '#3a3a36'); gr.addColorStop(0.4, '#77776e'); gr.addColorStop(1, '#22221f');
+      g.fillStyle = gr; g.fillRect(-30, -80, 60, 160);
+      g.fillStyle = '#c98f1c'; g.fillRect(-30, -80, 60, 46); g.fillStyle = '#9b9b94'; g.fillRect(-12, -96, 24, 16);
+      g.fillStyle = '#e8e4d0'; g.font = 'bold 30px Menlo,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('+', 0, -56);
+      g.restore();
+    }
+  });
+  newTex('note', (g) => {
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(128, 240, 92, 10, 0, 0, TAU); g.fill();
+    g.save(); g.translate(128, 138); g.rotate(0.1);
+    g.fillStyle = '#35301f'; g.fillRect(-84, -104, 168, 208);
+    g.fillStyle = '#d9d2b6'; g.fillRect(-80, -100, 160, 200);
+    g.fillStyle = '#b9b08e'; g.beginPath(); g.moveTo(80, 100); g.lineTo(44, 100); g.lineTo(80, 64); g.fill();
+    g.fillStyle = 'rgba(40,34,26,0.75)'; const r = mulberry32(106);
+    for (let l = 0; l < 11; l++) g.fillRect(-64, -80 + l * 15, 60 + r() * 66, 5);
+    g.fillStyle = 'rgba(84,10,8,0.6)'; g.beginPath(); g.arc(40, 50, 18, 0, TAU); g.fill();
+    g.restore();
+  });
+  newTex('spark', (g) => {
+    g.fillStyle = '#fff8d8'; g.beginPath();
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU, q = i % 2 ? 22 : 118; g.lineTo(128 + Math.cos(a) * q, 128 + Math.sin(a) * q); }
+    g.closePath(); g.fill();
+  });
+  newTex('wheel', (g) => {
+    g.lineCap = 'round';
+    g.strokeStyle = '#141414'; g.lineWidth = 10; g.beginPath(); g.arc(104, 178, 64, 0, TAU); g.stroke();
+    g.strokeStyle = '#8c8c86'; g.lineWidth = 3; g.beginPath(); g.arc(104, 178, 54, 0, TAU); g.stroke();
+    g.lineWidth = 1.6; for (let i = 0; i < 14; i++) { const a = (i / 14) * TAU; line(g, 104, 178, 104 + Math.cos(a) * 54, 178 + Math.sin(a) * 54); }
+    g.fillStyle = '#555'; g.beginPath(); g.arc(104, 178, 8, 0, TAU); g.fill();
+    g.strokeStyle = '#141414'; g.lineWidth = 8; g.beginPath(); g.arc(206, 226, 18, 0, TAU); g.stroke();
+    g.strokeStyle = '#9a9a94'; g.lineWidth = 7;
+    line(g, 70, 56, 84, 180); line(g, 82, 134, 192, 134); line(g, 192, 134, 206, 208); line(g, 192, 164, 232, 200); line(g, 46, 58, 76, 58);
+    g.strokeStyle = '#777'; g.lineWidth = 5; line(g, 86, 102, 172, 102); line(g, 172, 102, 178, 132);
+    g.fillStyle = '#24332d'; g.beginPath(); g.moveTo(64, 62); g.lineTo(84, 62); g.lineTo(94, 130); g.lineTo(72, 130); g.fill(); g.fillRect(80, 124, 114, 14);
+    g.fillStyle = '#141414'; g.fillRect(212, 196, 30, 8);
+    pixels(g, (d) => { for (let j = 0, i = 0; j < TS * TS; j++, i += 4) { if (d[i + 3] < 8) continue; const k = 0.6 + N4[j] * 0.6; d[i] = d[i] * k + (N1[j] > 0.55 ? 26 : 0); d[i + 1] *= k; d[i + 2] *= k; d[i + 3] = d[i + 3] > 100 ? 255 : 0; } });
+  });
+  newTex('iv', (g) => {
+    g.scale(TS / 66, 1); const cx = 33;
+    g.fillStyle = '#8f8f8a'; g.fillRect(cx - 1.3, 12, 2.6, 232);
+    g.fillRect(cx - 22, 240, 44, 4); g.fillRect(cx - 16, 12, 32, 2.4); g.fillRect(cx - 16, 12, 2, 9); g.fillRect(cx + 14, 12, 2, 9);
+    g.fillStyle = '#1c1c1c'; for (const x of [cx - 22, cx, cx + 22]) { g.beginPath(); g.ellipse(x, 249, 2.2, 5, 0, 0, TAU); g.fill(); }
+    g.fillStyle = '#c3cbc0'; g.fillRect(cx - 22, 22, 13, 44); g.fillStyle = '#7a1414'; g.fillRect(cx - 21, 42, 11, 23);
+    g.strokeStyle = '#c8c8ba'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(cx - 15.5, 66); g.bezierCurveTo(cx - 15, 110, cx - 4, 120, cx - 7, 170); g.stroke();
+  });
+  // 해피 모드용 귀여운 유령
+  const cute = (g, blink) => {
+    const body = () => { g.beginPath(); g.moveTo(40, 206); g.lineTo(40, 112); g.arc(128, 112, 88, Math.PI, 0); g.lineTo(216, 206);
+      for (let i = 0; i < 4; i++) { const x0 = 216 - i * 44; g.quadraticCurveTo(x0 - 11, 236, x0 - 22, 212); g.quadraticCurveTo(x0 - 33, 190, x0 - 44, 206); }
+      g.closePath(); };
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.fillStyle = '#f0559c'; g.beginPath(); g.ellipse(26, 150, 20, 13, -0.5, 0, TAU); g.ellipse(230, 150, 20, 13, 0.5, 0, TAU); g.fill();
+    g.fillStyle = '#ece2ee'; g.beginPath(); g.ellipse(28, 148, 15, 9, -0.5, 0, TAU); g.ellipse(228, 148, 15, 9, 0.5, 0, TAU); g.fill();
+    body(); g.fillStyle = '#f0559c'; g.fill(); g.lineWidth = 13; g.strokeStyle = '#f0559c'; g.stroke();
+    body(); const gr = g.createLinearGradient(0, 30, 0, 230); gr.addColorStop(0, '#efeaf2'); gr.addColorStop(0.65, '#ead9e8'); gr.addColorStop(1, '#e9a9cf'); g.fillStyle = gr; g.fill();
+    g.fillStyle = 'rgba(240,70,120,0.85)'; g.beginPath(); g.ellipse(74, 142, 18, 11, 0, 0, TAU); g.ellipse(182, 142, 18, 11, 0, 0, TAU); g.fill();
+    if (blink) {
+      g.strokeStyle = '#3a2a3a'; g.lineWidth = 7;
+      g.beginPath(); g.moveTo(80, 118); g.quadraticCurveTo(96, 96, 112, 118); g.moveTo(144, 118); g.quadraticCurveTo(160, 96, 176, 118); g.stroke();
+    } else {
+      g.fillStyle = '#3a2a3a'; g.beginPath(); g.ellipse(96, 110, 15, 20, 0, 0, TAU); g.ellipse(160, 110, 15, 20, 0, 0, TAU); g.fill();
+      g.fillStyle = '#ffffff'; for (const ex of [96, 160]) { g.beginPath(); g.arc(ex - 5, 102, 6.5, 0, TAU); g.arc(ex + 5, 119, 3.2, 0, TAU); g.fill(); }
+    }
+    g.strokeStyle = '#c93068'; g.lineWidth = 6; g.beginPath(); g.moveTo(112, 140); g.quadraticCurveTo(120, 152, 128, 141); g.quadraticCurveTo(136, 152, 144, 140); g.stroke();
+    // 리본
+    g.fillStyle = '#ee4a94'; g.beginPath(); g.moveTo(176, 40); g.lineTo(146, 20); g.lineTo(148, 62); g.closePath(); g.moveTo(176, 40); g.lineTo(206, 20); g.lineTo(204, 62); g.closePath(); g.fill();
+    g.fillStyle = '#c72a70'; g.beginPath(); g.arc(176, 40, 9, 0, TAU); g.fill();
+  };
+  newTex('cute0', (g) => cute(g, false));
+  newTex('cute1', (g) => cute(g, true));
+  newTex('heart', (g) => {
+    g.fillStyle = '#ee3f86'; g.beginPath(); g.moveTo(128, 220); g.bezierCurveTo(10, 130, 40, 30, 128, 86); g.bezierCurveTo(216, 30, 246, 130, 128, 220); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(88, 92, 16, 10, -0.6, 0, TAU); g.fill();
+  });
+  newTex('en0', (g) => drawEnemy(g, 0));
+  newTex('en1', (g) => drawEnemy(g, 1));
+  newTex('eyes0', (g) => { g.scale(TS / 135, 1); enemyHead(g, 67, 0, true); });
+  newTex('eyes1', (g) => { g.scale(TS / 135, 1); enemyHead(g, 67, 1, true); });
+}
+
+/* ---------------- world (맵 · 지오메트리) ---------------- */
+const H = 1.1, DOOR_H = 0.92;
+const R_ = (n, t) => Array(n).fill(t).join(' ');
+/* 한 칸 = 토큰 2글자.  0~19행: 1층 / 20~37행: 지하 1층 */
+const MAP_SRC = [
+  /* 0*/ '## ## ## ## ## ## #w ## ## ## #w ## ## ## #w ## ## ## #w ## ## ## #w ## ## ## #w ## ##',
+  /* 1*/ '## .. .~ .. ## bn .. bn ## bn .. .. ## bn .~ bn ## .. .. bn ## bn .. bn ## bn .. bn ##',
+  /* 2*/ '## .. .~ B. ## .. n1 .. ## .. .. be ## .. .~ .. ## bw n2 .. ## .. .. .. ## .. k1 .. #a',
+  /* 3*/ '## .. .. .. ## .. .. c. ## .. .. i. ## B. .~ .. ## c. .. .. ## i. .. le ## .. .. .. ##',
+  /* 4*/ '## ## Da ## ## ## Db ## ## ## Dc ## ## ## Dd ## ## ## De ## ## ## Df ## ## ## Dg ## ##',
+  /* 5*/ '## ' + R_(7, '..') + ' *r .. .. .. cn .. .. .. .. !b .. .. *r ' + R_(6, '..') + ' A1 ##',
+  /* 6*/ '## ## Dh ## ## .. ' + R_(8, '##') + ' Di ' + R_(8, '##') + ' !b ' + R_(5, '##'),
+  /* 7*/ '## .. .. .. ## .. ## ln ln .. .. ## .. .. !c .. .. ## m. .. .. le ## .. ## sn sn k2 ##',
+  /* 8*/ '## sw .. se ## .. ## .. .. n3 te ## .. t. .. .. .. ## .. .. n5 .. ## .. ## .. .. .. #b',
+  /* 9*/ '## sw !d se ## *r ## .. .. .. te ## .. c. .. .. ve ## .. on .. .. Dj *r Dk .. .. te ##',
+  /*10*/ '## sw .. se ## .. ## tw .. .. .. ## .. .. .. t. .. ## .. .. .. .. ## .. ## .. n4 .. ##',
+  /*11*/ '## B. .. .. ## .. ## .. .. .. .. ## .. .. !c .. .. ## f1 .. .~ .. ## .. ## ls .. .. ##',
+  /*12*/ '## ## Dl ## ## .. ## ## ## Dm ## ## ## ## Dn #2 ' + R_(7, '##') + ' .. ' + R_(5, '##'),
+  /*13*/ '## ' + R_(7, '..') + ' *r .. .. !e .. .. *e .. .. cs .. .. *r .. .. .. .. in .. .. ##',
+  /*14*/ '## ## Do ## ## ## ## Dp ' + R_(5, '##') + ' !a !a !a ' + R_(5, '##') + ' Dq ## ## ## ## Dr ## ##',
+  /*15*/ '## .. .. .. ## .. .. .. .. .. ## ' + R_(7, '..') + ' ## .. .. .. .. .. ## .. .. .. ##',
+  /*16*/ '## sw .. se ## .. t. .. .. .. #1 .. .. .. .. .. n0 te ## .. .. .. .. .. ## x. .. se ##',
+  /*17*/ '## sw .. se ## sw .. .. .. be ## .. *m .. @n .. .. te ## x. .. .. .. .. ## .. .. se ##',
+  /*18*/ '## .. B. .. ## .. .. n7 .. .. ## c. .. .. *n .. .. .. ## x. .. S1 .. .. ## B. n8 x. ##',
+  /*19*/ R_(12, '##') + ' #w ## XX KK #w ' + R_(12, '##'),
+  /*20*/ R_(19, '%%') + ' GG ' + R_(9, '%%'),
+  /*21*/ '%% m. m. .. .. .. %% sn sn sn sn sn %% .. S2 .. %% m. .. .. .. m. m. %% x. .. .. x. %%',
+  /*22*/ '%% .. .. .. .. .. %% .. .. n6 .. .. %% *b .. .. %% .. .. .. n9 .. .. %% .. .. .. .. %%',
+  /*23*/ '%% B. .. .. .. x. %% .. .. .. .. .. %% .. !f .. %% .. .. .. .. .. x. %% .. .. B. .. %%',
+  /*24*/ '%% %% %% Ds ' + R_(5, '%%') + ' Dt %% %% %% %% Du %% %% %% %% Dv ' + R_(6, '%%') + ' Dw %% %%',
+  /*25*/ '%% ' + R_(5, '..') + ' *r .. cn ' + R_(13, '..') + ' *r ' + R_(5, '..') + ' %%',
+  /*26*/ R_(6, '%%') + ' Dx %% %% %% %% .. ' + R_(7, '%%') + ' %4 Dy %a ' + R_(7, '%%'),
+  /*27*/ '%% ' + R_(9, '..') + ' %% .. %% %% %% %% Pt .. .. %% .. %% .. .. ' + R_(5, '%%'),
+  /*28*/ 'MM .. .. ge .. .. .. .. .. .. %% .. %% m. .. se %% .. .. DB .. DC .. .. ' + R_(5, '%%'),
+  /*29*/ 'MM .. .. .. .. na .. .~ .. .. Dz .. %% .. .. se %% %% %% %% .. ' + R_(8, '%%'),
+  /*30*/ 'MM .. .. ge .. .. .. gn .. .. %% *r %% .. gn .. %% B. .. %% !g %% .. .. ' + R_(5, '%%'),
+  /*31*/ '%% f2 .. .. .. .~ .. .. .. .. %% .. DA .. .~ .. %% .. .. DD .. DE .. .. ' + R_(5, '%%'),
+  /*32*/ R_(11, '%%') + ' .. %% .. .. nb %% %% %% %% *r ' + R_(8, '%%'),
+  /*33*/ '%% m. ' + R_(8, '..') + ' %% .. %% i. .. .. %% A2 .. %% .. %% .. .. .. .. f3 Pt %%',
+  /*34*/ '%% m. .. .~ ' + R_(6, '..') + ' DG .. ' + R_(5, '%%') + ' .. .. DF .. %% nc .. .. .. .. Pb %%',
+  /*35*/ '%% x. ' + R_(6, '..') + ' B. .. %% .. ' + R_(8, '%%') + ' .. %% %% %% DH %% %% %% %%',
+  /*36*/ R_(11, '%%') + ' ' + R_(5, '..') + ' *r ' + R_(10, '..') + ' %% %%',
+  /*37*/ R_(29, '%%'),
+];
+const MW = 29, MH = MAP_SRC.length;
+const TOK = MAP_SRC.map((row, z) => {
+  const t = row.trim().split(/\s+/);
+  if (t.length !== MW) console.error('[map] row ' + z + ' has ' + t.length + ' tokens');
+  return t;
+});
+const idxOf = (x, z) => z * MW + x;
+const inMap = (x, z) => x >= 0 && z >= 0 && x < MW && z < MH;
+const levelOf = (z) => (z < 20 ? 0 : 1);
+const DX = [0, 0, -1, 1], DZ = [-1, 1, 0, 0], DN = ['n', 's', 'w', 'e'];
+
+const DOOR_INFO = {
+  a: { label: '샤워실' }, b: { label: '101' }, c: { label: '102' }, d: { label: '103' }, e: { label: '104' }, f: { label: '105' }, g: { label: '106' },
+  h: { label: '린넨실' }, i: { label: '휴게실' }, j: { label: '전기치료실' }, k: { label: '원장실', lock: 'key1' }, l: { label: '린넨실' }, m: { label: '간호사실' }, n: { label: '휴게실' },
+  o: { label: '약제실' }, p: { label: '진료실' }, q: { label: '지하 계단', lock: 'key2' }, r: { label: '창고' },
+  s: { label: '보일러실', style: 'base' }, t: { label: '기록보관실', style: 'base' }, u: { label: '계단', style: 'base' }, v: { label: '발전기실', style: 'base' }, w: { label: '자재창고', style: 'base' },
+  x: { label: '영안실', style: 'base' }, y: { label: '제4병동', style: 'cell' }, z: { label: '영안실', style: 'base' }, A: { label: '특수처치실', style: 'base' },
+  B: { label: '4-01', style: 'cell' }, C: { label: '4-02', style: 'cell' }, D: { label: '4-03', style: 'cell' }, E: { label: '4-04', style: 'cell' }, F: { label: '4-05', style: 'cell' },
+  G: { label: '소각실', style: 'base' }, H: { label: '4-07', style: 'cell' },
+};
+/* [이름, x0, z0, x1, z1, 테마] */
+const ROOMS = [
+  ['샤워실', 1, 1, 3, 3, 'tile'], ['101호 병실', 5, 1, 7, 3], ['102호 병실', 9, 1, 11, 3], ['103호 병실', 13, 1, 15, 3], ['104호 병실', 17, 1, 19, 3], ['105호 병실', 21, 1, 23, 3], ['106호 병실', 25, 1, 27, 3],
+  ['린넨실', 1, 7, 3, 11], ['간호사실', 7, 7, 10, 11], ['휴게실', 12, 7, 16, 11], ['전기치료실', 18, 7, 21, 11, 'tile'], ['원장실', 25, 7, 27, 11],
+  ['약제실', 1, 15, 3, 18], ['진료실', 5, 15, 9, 18], ['로비', 11, 15, 17, 18], ['로비', 13, 14, 15, 14], ['계단실', 19, 15, 23, 18], ['창고', 25, 15, 27, 18],
+  ['보일러실', 1, 21, 5, 23], ['기록보관실', 7, 21, 11, 23], ['지하 계단', 13, 21, 15, 23], ['발전기실', 17, 21, 22, 23], ['자재창고', 24, 21, 27, 23],
+  ['영안실', 1, 27, 9, 31, 'tile'], ['특수처치실', 13, 28, 15, 33], ['소각실', 1, 33, 9, 35],
+  ['격리실 4-01', 17, 27, 18, 28, 'pad'], ['격리실 4-03', 17, 30, 18, 31, 'pad'], ['격리실 4-05', 17, 33, 18, 34, 'pad'],
+  ['격리실 4-02', 22, 27, 23, 28, 'pad'], ['격리실 4-04', 22, 30, 23, 31, 'pad'], ['격리실 4-07', 22, 33, 26, 34, 'pad'],
+  ['제4병동', 20, 27, 20, 36], ['제4병동', 21, 36, 26, 36],
+];
+function roomAt(x, z) { for (const r of ROOMS) if (x >= r[1] && z >= r[2] && x <= r[3] && z <= r[4]) return r; return null; }
+function themeAt(x, z) { const r = roomAt(x, z); if (r && r[5]) return r[5]; return z < 20 ? 'hosp' : 'conc'; }
+function locNameAt(x, z) { const r = roomAt(x, z); if (r) return r[0]; return z < 20 ? '1층 복도' : '지하 1층 복도'; }
+
+const SPECIAL = {
+  '#w': { tex: 'wallwin' }, '#1': { tex: 'sign_name', face: 'e' }, '#2': { tex: 'sign_dir', face: 's' }, '#a': { tex: 'txt_here' }, '#b': { tex: 'txt_up' },
+  '%4': { tex: 'sign_w4', face: 'n' }, '%a': { tex: 'txt_no', face: 'n' },
+  'MM': { tex: 'drawers' }, 'Pt': { tex: 'padtally' }, 'Pb': { tex: 'padblood' },
+  'GG': { dyn: 'gen', face: 's' }, 'KK': { dyn: 'sw', face: 'n' },
+};
+
+const W = {
+  solid: new Uint8Array(MW * MH), block: new Uint8Array(MW * MH), doors: [], doorAt: new Array(MW * MH).fill(null),
+  items: [], colliders: [], lights: [], triggers: {}, sprites: [], marks: {}, dynFaces: {}, tv: null,
+  start: { x: 14.5, z: 17.5, yaw: 0 }, stairs: {}, exit: null, openCells: [[], []],
+};
+
+/* --- vertex buffer: pos3 uv2 layer1 normal3 emit1 --- */
+class VBuf {
+  constructor(cap) { this.a = new Float32Array(cap * 10); this.n = 0; }
+  v(x, y, z, u, v, l, nx, ny, nz, e) {
+    let i = this.n * 10;
+    if (i + 10 > this.a.length) { const b = new Float32Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    const A = this.a; A[i] = x; A[i + 1] = y; A[i + 2] = z; A[i + 3] = u; A[i + 4] = v; A[i + 5] = l; A[i + 6] = nx; A[i + 7] = ny; A[i + 8] = nz; A[i + 9] = e; this.n++;
+  }
+  reset() { this.n = 0; }
+}
+const SM = new VBuf(70000);
+
+/* p0..p3 = 정면에서 본 좌하·우하·우상·좌상 (반시계) */
+function quad(b, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, layer, emit, u0, v0, u1, v1, u2, v2, u3, v3) {
+  const ax = x1 - x0, ay = y1 - y0, az = z1 - z0, bx = x2 - x0, by = y2 - y0, bz = z2 - z0;
+  let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+  b.v(x0, y0, z0, u0, v0, layer, nx, ny, nz, emit); b.v(x1, y1, z1, u1, v1, layer, nx, ny, nz, emit); b.v(x2, y2, z2, u2, v2, layer, nx, ny, nz, emit);
+  b.v(x0, y0, z0, u0, v0, layer, nx, ny, nz, emit); b.v(x2, y2, z2, u2, v2, layer, nx, ny, nz, emit); b.v(x3, y3, z3, u3, v3, layer, nx, ny, nz, emit);
+}
+function vquad(b, blx, blz, brx, brz, y0, y1, layer, emit, u0, u1, v0, v1) {
+  if (emit === undefined) emit = 0; if (u0 === undefined) { u0 = 0; u1 = 1; } if (v0 === undefined) { v0 = 0; v1 = 1; }
+  quad(b, blx, y0, blz, brx, y0, brz, brx, y1, brz, blx, y1, blz, layer, emit, u0, v1, u1, v1, u1, v0, u0, v0);
+}
+const _U = [0, 1, 1, 0], _V = [0, 0, 1, 1];           // TL, TR, BR, BL
+function hquad(b, x0, z0, x1, z1, y, up, layer, emit, rot) {
+  emit = emit || 0; rot = rot || 0; const k = (i) => (i + rot) & 3;
+  if (up) quad(b, x0, y, z1, x1, y, z1, x1, y, z0, x0, y, z0, layer, emit, _U[k(3)], _V[k(3)], _U[k(2)], _V[k(2)], _U[k(1)], _V[k(1)], _U[k(0)], _V[k(0)]);
+  else quad(b, x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1, layer, emit, _U[k(0)], _V[k(0)], _U[k(1)], _V[k(1)], _U[k(2)], _V[k(2)], _U[k(3)], _V[k(3)]);
+}
+function box(b, x0, y0, z0, x1, y1, z1, tex, emit) {
+  emit = emit || 0; const t = typeof tex === 'number' ? { side: tex } : tex; const s = t.side;
+  const pick_ = (k) => (t[k] === undefined ? s : t[k]);
+  vquad(b, x1, z0, x0, z0, y0, y1, pick_('n'), emit);
+  vquad(b, x0, z1, x1, z1, y0, y1, pick_('s'), emit);
+  vquad(b, x0, z0, x0, z1, y0, y1, pick_('w'), emit);
+  vquad(b, x1, z1, x1, z0, y0, y1, pick_('e'), emit);
+  hquad(b, x0, z0, x1, z1, y1, true, pick_('top'), emit);
+  if (y0 > 0.01) hquad(b, x0, z0, x1, z1, y0, false, pick_('bottom'), emit);
+}
+
+const solidAt = (x, z) => !inMap(x, z) || W.solid[idxOf(x, z)] === 1;
+function addCollider(x0, z0, x1, z1) { W.colliders.push({ x0, z0, x1, z1 }); }
+function wallBox(x, z, dir, wdt, dep, gap) {
+  gap = gap === undefined ? 0.02 : gap; const m = (1 - wdt) / 2;
+  if (dir === 'n') return { x0: x + m, x1: x + 1 - m, z0: z + gap, z1: z + gap + dep, front: 's' };
+  if (dir === 's') return { x0: x + m, x1: x + 1 - m, z0: z + 1 - gap - dep, z1: z + 1 - gap, front: 'n' };
+  if (dir === 'w') return { x0: x + gap, x1: x + gap + dep, z0: z + m, z1: z + 1 - m, front: 'e' };
+  if (dir === 'e') return { x0: x + 1 - gap - dep, x1: x + 1 - gap, z0: z + m, z1: z + 1 - m, front: 'w' };
+  return { x0: x + 0.5 - wdt / 2, x1: x + 0.5 + wdt / 2, z0: z + 0.5 - dep / 2, z1: z + 0.5 + dep / 2, front: 's' };
+}
+function texFront(b, side, front, top) { const t = { side }; t[b.front] = front; if (top !== undefined) t.top = top; return t; }
+function frontFace(b, off) {
+  if (b.front === 's') return [b.x0, b.z1 + off, b.x1, b.z1 + off];
+  if (b.front === 'n') return [b.x1, b.z0 - off, b.x0, b.z0 - off];
+  if (b.front === 'w') return [b.x0 - off, b.z0, b.x0 - off, b.z1];
+  return [b.x1 + off, b.z1, b.x1 + off, b.z0];
+}
+
+/* --- 소품 --- */
+function propBed(x, z, dir) {
+  const b = wallBox(x, z, dir, 0.44, 0.92, 0.03), lg = 0.035, t = 0.03;
+  box(SM, b.x0, 0.15, b.z0, b.x1, 0.19, b.z1, TEX.metal);
+  for (const [lx, lz] of [[b.x0, b.z0], [b.x1 - lg, b.z0], [b.x0, b.z1 - lg], [b.x1 - lg, b.z1 - lg]]) box(SM, lx, 0, lz, lx + lg, 0.15, lz + lg, TEX.metal);
+  box(SM, b.x0 + 0.012, 0.19, b.z0 + 0.012, b.x1 - 0.012, 0.255, b.z1 - 0.012, { side: TEX.matts, top: TEX.matt });
+  if (dir === 'n') box(SM, b.x0, 0.15, b.z0, b.x1, 0.5, b.z0 + t, TEX.metal);
+  else if (dir === 's') box(SM, b.x0, 0.15, b.z1 - t, b.x1, 0.5, b.z1, TEX.metal);
+  else if (dir === 'w') box(SM, b.x0, 0.15, b.z0, b.x0 + t, 0.5, b.z1, TEX.metal);
+  else box(SM, b.x1 - t, 0.15, b.z0, b.x1, 0.5, b.z1, TEX.metal);
+  addCollider(b.x0, b.z0, b.x1, b.z1);
+}
+function propLocker(x, z, dir) { const b = wallBox(x, z, dir, 0.86, 0.3); box(SM, b.x0, 0, b.z0, b.x1, 0.88, b.z1, texFront(b, TEX.metal, TEX.locker)); addCollider(b.x0, b.z0, b.x1, b.z1); }
+function propShelf(x, z, dir) { const b = wallBox(x, z, dir, 0.92, 0.26); box(SM, b.x0, 0, b.z0, b.x1, 0.98, b.z1, texFront(b, TEX.wood, TEX.shelf)); addCollider(b.x0, b.z0, b.x1, b.z1); }
+function propDesk(x, z, dir) {
+  if (dir === '.') {
+    const b = wallBox(x, z, '.', 0.6, 0.6), lg = 0.04;
+    box(SM, b.x0, 0.28, b.z0, b.x1, 0.32, b.z1, { side: TEX.wood, top: TEX.desktop });
+    for (const [lx, lz] of [[b.x0, b.z0], [b.x1 - lg, b.z0], [b.x0, b.z1 - lg], [b.x1 - lg, b.z1 - lg]]) box(SM, lx, 0, lz, lx + lg, 0.28, lz + lg, TEX.wood);
+    addCollider(b.x0, b.z0, b.x1, b.z1); return;
+  }
+  const b = wallBox(x, z, dir, 0.86, 0.42);
+  box(SM, b.x0, 0, b.z0, b.x1, 0.33, b.z1, texFront(b, TEX.wood, TEX.deskfront, TEX.desktop)); addCollider(b.x0, b.z0, b.x1, b.z1);
+}
+function propGurney(x, z, ax, body) {
+  const ns = ax === 'n' || ax === 's';
+  const x0 = ns ? x + 0.32 : x + 0.06, x1 = ns ? x + 0.68 : x + 0.94, z0 = ns ? z + 0.06 : z + 0.32, z1 = ns ? z + 0.94 : z + 0.68, lg = 0.03;
+  box(SM, x0, 0.3, z0, x1, 0.335, z1, { side: TEX.metal, top: body ? TEX.sheet : TEX.matt });
+  for (const [lx, lz] of [[x0 + 0.02, z0 + 0.02], [x1 - 0.05, z0 + 0.02], [x0 + 0.02, z1 - 0.05], [x1 - 0.05, z1 - 0.05]]) box(SM, lx, 0, lz, lx + lg, 0.3, lz + lg, TEX.metal);
+  if (body) {
+    const S = TEX.sheet;
+    if (ns) {
+      box(SM, x0 + 0.1, 0.335, z0 + 0.05, x1 - 0.1, 0.445, z0 + 0.2, S); box(SM, x0 + 0.05, 0.335, z0 + 0.2, x1 - 0.05, 0.43, z0 + 0.6, S);
+      box(SM, x0 + 0.08, 0.335, z0 + 0.6, x1 - 0.08, 0.4, z1 - 0.06, S); box(SM, x0 + 0.1, 0.4, z1 - 0.13, x1 - 0.1, 0.46, z1 - 0.06, S);
+    } else {
+      box(SM, x0 + 0.05, 0.335, z0 + 0.1, x0 + 0.2, 0.445, z1 - 0.1, S); box(SM, x0 + 0.2, 0.335, z0 + 0.05, x0 + 0.6, 0.43, z1 - 0.05, S);
+      box(SM, x0 + 0.6, 0.335, z0 + 0.08, x1 - 0.06, 0.4, z1 - 0.08, S); box(SM, x1 - 0.13, 0.4, z0 + 0.1, x1 - 0.06, 0.46, z1 - 0.1, S);
+    }
+  }
+  addCollider(x0, z0, x1, z1);
+}
+function propCrate(x, z) {
+  const j1 = hash2(x, z, 9) * 0.12 - 0.06, j2 = hash2(x, z, 10) * 0.12 - 0.06;
+  box(SM, x + 0.2 + j1, 0, z + 0.2 + j2, x + 0.8 + j1, 0.5, z + 0.8 + j2, TEX.crate);
+  if (hash2(x, z, 11) < 0.55) box(SM, x + 0.3 + j2, 0.5, z + 0.3 + j1, x + 0.72 + j2, 0.88, z + 0.72 + j1, TEX.crate);
+  addCollider(x + 0.2 + j1, z + 0.2 + j2, x + 0.8 + j1, z + 0.8 + j2);
+}
+function propMachine(x, z) { box(SM, x + 0.1, 0, z + 0.1, x + 0.9, 0.9, z + 0.9, { side: TEX.machine, top: TEX.metal }); addCollider(x + 0.1, z + 0.1, x + 0.9, z + 0.9); }
+function propTV(x, z, dir) {
+  const s = wallBox(x, z, dir, 0.56, 0.34), b = wallBox(x, z, dir, 0.46, 0.32, 0.03);
+  box(SM, s.x0, 0, s.z0, s.x1, 0.3, s.z1, TEX.wood); box(SM, b.x0, 0.3, b.z0, b.x1, 0.66, b.z1, TEX.tvbox);
+  addCollider(s.x0, s.z0, s.x1, s.z1);
+  const f = frontFace(b, 0.004), k = 0.09;
+  const face = [lerp(f[0], f[2], k), lerp(f[1], f[3], k), lerp(f[2], f[0], k), lerp(f[3], f[1], k)];
+  const cx = (f[0] + f[2]) / 2, cz = (f[1] + f[3]) / 2, ox = { w: -0.4, e: 0.4 }[b.front] || 0, oz = { n: -0.4, s: 0.4 }[b.front] || 0;
+  const L = { kind: 'tv', x: cx + ox, y: 0.5, z: cz + oz, r: 3.4, col: [0.55, 0.66, 0.92], inten: 0, box: null, cx: x, cz: z, ph: 0 };
+  W.lights.push(L);
+  W.tv = { x: cx, z: cz, face, on: false, t: 0, light: L };
+}
+function propSprite(x, z, pos, tex, w, h, cr) {
+  const o = { n: [0.5, 0.2], s: [0.5, 0.8], w: [0.2, 0.5], e: [0.8, 0.5] }[pos] || [0.5, 0.5];
+  const px = x + o[0], pz = z + o[1];
+  W.sprites.push({ x: px, z: pz, w, h, layer: TEX[tex] });
+  addCollider(px - cr, pz - cr, px + cr, pz + cr);
+}
+function addItem(x, z, a, b) {
+  const def = { k: ['key', 0.17], f: ['fuse', 0.15], B: ['batt', 0.14], n: ['note', 0.2] }[a];
+  W.items.push({ type: a, id: a + b, x: x + 0.5 + (hash2(x, z, 12) - 0.5) * 0.2, z: z + 0.5 + (hash2(x, z, 13) - 0.5) * 0.2, size: def[1], layer: TEX[def[0]], taken: false, ph: hash2(x, z, 15) * 3 });
+}
+function addLight(x, z, kind) {
+  const L = { kind, x: x + 0.5, y: 0.96, z: z + 0.5, r: 3, col: [1, 1, 1], inten: 0, box: null, cx: x, cz: z, ph: hash2(x, z, 14) * TAU };
+  if (kind === 'r') { L.r = 4.4; L.col = [1.0, 0.07, 0.04]; }
+  else if (kind === 'm') { L.r = 4.4; L.col = [0.3, 0.4, 0.62]; L.y = 0.8; }
+  else if (kind === 'b') { L.r = 3.2; L.col = [1.0, 0.72, 0.38]; L.y = 0.9; }
+  else if (kind === 'e' || kind === 'n') {
+    L.r = 2.0; L.col = [0.1, 0.75, 0.3]; L.y = 0.9;
+    const S = TEX.exitsign, y0 = 0.86, y1 = 1.03, c = 0.5, a = 0.29, b2 = 0.71;
+    if (kind === 'e') { vquad(SM, x + c, z + a, x + c, z + b2, y0, y1, S, 0.9); vquad(SM, x + c, z + b2, x + c, z + a, y0, y1, S, 0.9); }
+    else { vquad(SM, x + b2, z + c, x + a, z + c, y0, y1, S, 0.9); vquad(SM, x + a, z + c, x + b2, z + c, y0, y1, S, 0.9); }
+    box(SM, x + 0.49, y1, z + 0.49, x + 0.51, H, z + 0.51, TEX.frame);
+  }
+  W.lights.push(L);
+}
+function lightBox(cx, cz, rad) {                  // 벽 너머로 빛이 새지 않게 영역 제한
+  let x0 = cx, x1 = cx, z0 = cz, z1 = cz; const seen = new Set([idxOf(cx, cz)]); const fr = [[cx, cz, 0]];
+  while (fr.length) {
+    const [x, z, d] = fr.shift();
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+    if (d >= rad) continue;
+    if (W.doorAt[idxOf(x, z)] && !(x === cx && z === cz)) continue;
+    for (let k = 0; k < 4; k++) { const nx = x + DX[k], nz = z + DZ[k]; if (solidAt(nx, nz)) continue; const i = idxOf(nx, nz); if (seen.has(i)) continue; seen.add(i); fr.push([nx, nz, d + 1]); }
+  }
+  return [x0 - 0.02, z0 - 0.02, x1 + 1.02, z1 + 1.02];
+}
+function addDoor(x, z, id) {
+  const info = DOOR_INFO[id] || { label: '?' };
+  const axis = solidAt(x - 1, z) && solidAt(x + 1, z) ? 'x' : 'z';
+  const d = { id, x, z, axis, open: 0, target: 0, sign: 1, locked: info.lock || null, lock0: info.lock || null, jam: false, label: info.label, layer: doorTex(info.label, info.style || 'hosp'), rattle: 0, i: idxOf(x, z) };
+  W.doors.push(d); W.doorAt[d.i] = d;
+  const fr = TEX.frame;
+  if (axis === 'x') {
+    box(SM, x, 0, z + 0.36, x + 0.15, H, z + 0.64, fr); box(SM, x + 0.85, 0, z + 0.36, x + 1, H, z + 0.64, fr); box(SM, x + 0.15, DOOR_H, z + 0.36, x + 0.85, H, z + 0.64, fr);
+    addCollider(x, z + 0.36, x + 0.15, z + 0.64); addCollider(x + 0.85, z + 0.36, x + 1, z + 0.64);
+  } else {
+    box(SM, x + 0.36, 0, z, x + 0.64, H, z + 0.15, fr); box(SM, x + 0.36, 0, z + 0.85, x + 0.64, H, z + 1, fr); box(SM, x + 0.36, DOOR_H, z + 0.15, x + 0.64, H, z + 0.85, fr);
+    addCollider(x + 0.36, z, x + 0.64, z + 0.15); addCollider(x + 0.36, z + 0.85, x + 0.64, z + 1);
+  }
+}
+function addExit(x, z) {
+  W.exit = { x, z }; const fr = TEX.frame;
+  box(SM, x, 0, z + 0.36, x + 0.1, H, z + 0.64, fr); box(SM, x + 0.9, 0, z + 0.36, x + 1, H, z + 0.64, fr); box(SM, x + 0.1, 0.98, z + 0.36, x + 0.9, H, z + 0.64, fr);
+  addCollider(x, z + 0.36, x + 0.1, z + 0.64); addCollider(x + 0.9, z + 0.36, x + 1, z + 0.64);
+  W.lights.push({ kind: 'x', x: x + 0.5, y: 0.6, z: z + 0.2, r: 5.5, col: [0.42, 0.52, 0.8], inten: 0, box: null, cx: x, cz: z - 1, ph: 0 });
+}
+function stairsDown(x, z) {                         // 남쪽으로 내려가는 계단
+  const n = 6, st = 0.11, C = TEX.conc1, F = TEX.cfloor;
+  for (let i = 0; i < n; i++) {
+    const za = z + i / n, zb = z + (i + 1) / n, y = -(i + 1) * st;
+    hquad(SM, x, za, x + 1, zb, y, true, F);
+    vquad(SM, x + 1, za, x, za, y, y + st, C, 0, 0, 1, 0.9, 1);
+  }
+  vquad(SM, x, z + 1, x, z, -0.8, 0, C); vquad(SM, x + 1, z, x + 1, z + 1, -0.8, 0, C); vquad(SM, x + 1, z + 1, x, z + 1, -0.8, 0, C);
+}
+function stairsUp(x, z) {                           // 북쪽으로 올라가는 계단
+  const n = 6, st = 0.18;
+  for (let i = 0; i < n; i++) { const zb = z + 1 - i / n, za = z + 1 - (i + 1) / n; box(SM, x, 0, za, x + 1, (i + 1) * st, zb, { side: TEX.conc1, top: TEX.cfloor }); }
+}
+
+function buildWorld() {
+  const TH = {
+    hosp: { wall: [TEX.wall1, TEX.wall1, TEX.wall2, TEX.wall3, TEX.wall2, TEX.wall1, TEX.wall3, TEX.wallblood], floor: [TEX.floor1, TEX.floor2], fblood: TEX.floorblood, ceil: [TEX.ceil1, TEX.ceil1, TEX.ceil1, TEX.ceil2] },
+    conc: { wall: [TEX.conc1, TEX.conc2, TEX.conc1, TEX.conc2, TEX.conc1, TEX.conc3], floor: [TEX.cfloor, TEX.cfloor2], fblood: TEX.cfloorblood, ceil: [TEX.cceil] },
+    tile: { wall: [TEX.tile1, TEX.tile2, TEX.tile1, TEX.tileblood], floor: [TEX.tfloor], fblood: TEX.tfloorblood, ceil: [TEX.ceil1] },
+    pad: { wall: [TEX.pad1, TEX.pad2], floor: [TEX.padf], fblood: TEX.padf, ceil: [TEX.pad1] },
+  };
+  for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if ('#%PTMGK'.includes(TOK[z][x][0])) W.solid[idxOf(x, z)] = 1;
+
+  for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
+    const t = TOK[z][x], a = t[0], b = t[1], i = idxOf(x, z);
+    if (W.solid[i]) {
+      const sp = SPECIAL[t];
+      for (let k = 0; k < 4; k++) {
+        const dx = DX[k], dz = DZ[k], d = DN[k], nx = x + dx, nz = z + dz;
+        if (solidAt(nx, nz)) continue;
+        let blx, blz, brx, brz;
+        if (d === 'n') { blx = x + 1; blz = z; brx = x; brz = z; }
+        else if (d === 's') { blx = x; blz = z + 1; brx = x + 1; brz = z + 1; }
+        else if (d === 'w') { blx = x; blz = z; brx = x; brz = z + 1; }
+        else { blx = x + 1; blz = z + 1; brx = x + 1; brz = z; }
+        const useSp = sp && (!sp.face || sp.face === d);
+        if (useSp && sp.dyn) { W.dynFaces[sp.dyn] = { blx, blz, brx, brz, cx: (blx + brx) / 2, cz: (blz + brz) / 2 }; continue; }
+        let layer, emit = 0, flip = false;
+        if (useSp) layer = TEX[sp.tex];
+        else if (TOK[nz][nx] === 'XX' && d === 'n') { layer = TEX.outside; emit = 0.6; }
+        else { const th = TH[themeAt(nx, nz)]; layer = th.wall[(hash2(x * 4 + dx, z * 4 + dz, 5) * th.wall.length) | 0]; flip = hash2(x, z, 7 + k) < 0.5; }
+        vquad(SM, blx, blz, brx, brz, 0, H, layer, emit, flip ? 1 : 0, flip ? 0 : 1, 0, 1);
+      }
+      continue;
+    }
+    const th = TH[themeAt(x, z)];
+    let floorTex = th.floor[(hash2(x, z, 1) * th.floor.length) | 0], ceilTex = th.ceil[(hash2(x, z, 2) * th.ceil.length) | 0];
+    let drawF = true, drawC = true, blocked = false, plain = false;
+    switch (a) {
+      case '.': if (b === '~') floorTex = th.fblood; plain = true; break;
+      case 'D': addDoor(x, z, b); break;
+      case 'X': addExit(x, z); floorTex = TEX.cfloor; break;
+      case 'S': W.stairs[b] = { x, z }; if (b === '1') { stairsDown(x, z); drawF = false; } else { stairsUp(x, z); drawC = false; } break;
+      case 'b': propBed(x, z, b); blocked = true; break;
+      case 'l': propLocker(x, z, b); blocked = true; break;
+      case 't': propDesk(x, z, b); blocked = true; break;
+      case 's': propShelf(x, z, b); blocked = true; break;
+      case 'g': propGurney(x, z, b, true); blocked = true; break;
+      case 'o': propGurney(x, z, b, false); blocked = true; break;
+      case 'x': propCrate(x, z); blocked = true; break;
+      case 'm': propMachine(x, z); blocked = true; break;
+      case 'v': propTV(x, z, b); blocked = true; break;
+      case 'c': propSprite(x, z, b, 'wheel', 0.5, 0.52, 0.14); blocked = b === '.'; plain = !blocked; break;
+      case 'i': propSprite(x, z, b, 'iv', 0.22, 0.86, 0.06); blocked = b === '.'; plain = !blocked; break;
+      case 'k': case 'f': case 'B': case 'n': addItem(x, z, a, b); plain = true; break;
+      case '*': addLight(x, z, b); plain = true; break;
+      case '!': W.triggers[i] = b; plain = true; break;
+      case '@': W.start = { x: x + 0.5, z: z + 0.5, yaw: { n: 0, e: Math.PI / 2, s: Math.PI, w: -Math.PI / 2 }[b] || 0 }; plain = true; break;
+      case 'A': W.marks['A' + b] = { x: x + 0.5, z: z + 0.5 }; plain = true; break;
+      default: console.error('[map] unknown token', t, x, z);
+    }
+    if (blocked) W.block[i] = 1;
+    if (plain) W.openCells[levelOf(z)].push([x, z]);
+    if (drawF) hquad(SM, x, z, x + 1, z + 1, 0, true, floorTex, 0, (hash2(x, z, 3) * 4) | 0);
+    if (drawC) hquad(SM, x, z, x + 1, z + 1, H, false, ceilTex, 0, (hash2(x, z, 4) * 4) | 0);
+  }
+  for (const L of W.lights) L.box = lightBox(L.cx, L.cz, Math.ceil(L.r));
+}
+
+/* --- 충돌 / 시야 / 길찾기 --- */
+function pushOut(p, r, x0, z0, x1, z1) {
+  const qx = clamp(p.x, x0, x1), qz = clamp(p.z, z0, z1);
+  const dx = p.x - qx, dz = p.z - qz, d2 = dx * dx + dz * dz;
+  if (d2 >= r * r) return;
+  if (d2 > 1e-9) { const d = Math.sqrt(d2), k = (r - d) / d; p.x += dx * k; p.z += dz * k; }
+  else {
+    const l = p.x - x0, q = x1 - p.x, t = p.z - z0, b = z1 - p.z, m = Math.min(l, q, t, b);
+    if (m === l) p.x = x0 - r; else if (m === q) p.x = x1 + r; else if (m === t) p.z = z0 - r; else p.z = z1 + r;
+  }
+}
+function doorSlab(d) { return d.axis === 'x' ? [d.x + 0.15, d.z + 0.45, d.x + 0.85, d.z + 0.55] : [d.x + 0.45, d.z + 0.15, d.x + 0.55, d.z + 0.85]; }
+function collide(p, r, shutter) {
+  for (let it = 0; it < 2; it++) {
+    const cx = Math.floor(p.x), cz = Math.floor(p.z);
+    for (let z = cz - 1; z <= cz + 1; z++) for (let x = cx - 1; x <= cx + 1; x++) {
+      if (solidAt(x, z)) { pushOut(p, r, x, z, x + 1, z + 1); continue; }
+      const d = W.doorAt[idxOf(x, z)];
+      if (d && d.open < 0.6) { const s = doorSlab(d); pushOut(p, r, s[0], s[1], s[2], s[3]); }
+    }
+    const C = W.colliders;
+    for (let i = 0; i < C.length; i++) { const c = C[i]; if (p.x < c.x0 - r || p.x > c.x1 + r || p.z < c.z0 - r || p.z > c.z1 + r) continue; pushOut(p, r, c.x0, c.z0, c.x1, c.z1); }
+    if (W.exit && shutter < 0.6) pushOut(p, r, W.exit.x + 0.1, W.exit.z + 0.45, W.exit.x + 0.9, W.exit.z + 0.55);
+  }
+}
+function los(x0, z0, x1, z1) {
+  const dx = x1 - x0, dz = z1 - z0, d = Math.hypot(dx, dz), n = Math.ceil(d / 0.15);
+  for (let i = 1; i < n; i++) {
+    const t = i / n, cx = Math.floor(x0 + dx * t), cz = Math.floor(z0 + dz * t);
+    if (solidAt(cx, cz)) return false;
+    const dr = W.doorAt[idxOf(cx, cz)]; if (dr && dr.open < 0.5) return false;
+  }
+  return true;
+}
+function passableEnemy(x, z) {
+  if (solidAt(x, z)) return false; const i = idxOf(x, z);
+  if (W.block[i]) return false;
+  const d = W.doorAt[i]; if (d && (d.locked || d.jam)) return false;
+  if (W.exit && W.exit.x === x && W.exit.z === z) return false;
+  return true;
+}
+const _prev = new Int16Array(MW * MH), _q = new Int16Array(MW * MH);
+function bfsPath(sx, sz, tx, tz) {
+  if (!inMap(sx, sz) || !inMap(tx, tz) || solidAt(tx, tz)) return null;
+  const s = idxOf(sx, sz), t = idxOf(tx, tz); if (s === t) return [];
+  _prev.fill(-1); let qh = 0, qt = 0; _q[qt++] = s; _prev[s] = s;
+  while (qh < qt) {
+    const c = _q[qh++]; if (c === t) break;
+    const cx = c % MW, cz = (c / MW) | 0;
+    for (let k = 0; k < 4; k++) {
+      const nx = cx + DX[k], nz = cz + DZ[k]; if (!inMap(nx, nz)) continue;
+      const n = idxOf(nx, nz); if (_prev[n] !== -1) continue;
+      if (n !== t && !passableEnemy(nx, nz)) continue;
+      _prev[n] = c; _q[qt++] = n;
+    }
+  }
+  if (_prev[t] === -1) return null;
+  const path = []; let c = t; while (c !== s) { path.push([c % MW, (c / MW) | 0]); c = _prev[c]; }
+  return path.reverse();
+}
+function distMap(sx, sz) {
+  const dm = new Int16Array(MW * MH).fill(-1); if (!inMap(sx, sz)) return dm;
+  let qh = 0, qt = 0; const s = idxOf(sx, sz); _q[qt++] = s; dm[s] = 0;
+  while (qh < qt) {
+    const c = _q[qh++], cx = c % MW, cz = (c / MW) | 0;
+    for (let k = 0; k < 4; k++) {
+      const nx = cx + DX[k], nz = cz + DZ[k]; if (!inMap(nx, nz)) continue;
+      const n = idxOf(nx, nz); if (dm[n] !== -1 || !passableEnemy(nx, nz)) continue;
+      dm[n] = dm[c] + 1; _q[qt++] = n;
+    }
+  }
+  return dm;
+}
+
+/* ---------------- WebGL2 renderer ---------------- */
+const canvas = $('gl');
+let gl = null;
+const R = { progS: null, progP: null, uS: {}, uP: {}, vaoS: null, vboS: null, vaoD: null, vboD: null, vboDCap: 0, vaoE: null, tex: null, fbo: null, fboTex: null, fboDepth: null, rw: 0, rh: 0, nStatic: 0 };
+const DYN = new VBuf(9000);
+const CAM = { x: 0, y: 0.6, z: 0, yaw: 0, pitch: 0, fov: 62 };
+
+const VS_SCENE = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in float aLayer;
+layout(location=3) in vec3 aN;
+layout(location=4) in float aEmit;
+uniform mat4 uVP;
+out vec3 vPos; out vec2 vUV; out float vLayer; out vec3 vN; out float vEmit;
+void main(){ vPos=aPos; vUV=aUV; vLayer=aLayer; vN=aN; vEmit=aEmit; gl_Position=uVP*vec4(aPos,1.0); }`;
+
+const FS_SCENE = `#version 300 es
+precision highp float;
+precision highp sampler2DArray;
+in vec3 vPos; in vec2 vUV; in float vLayer; in vec3 vN; in float vEmit;
+uniform sampler2DArray uTex;
+uniform vec3 uCam, uLPos, uLDir;
+uniform float uFlash, uFog, uAmb;
+uniform vec3 uAmbCol;
+uniform int uNL;
+uniform vec4 uPL[8];
+uniform vec4 uPC[8];
+uniform vec4 uPB[8];
+out vec4 o;
+void main(){
+  vec4 t = texture(uTex, vec3(vUV, floor(vLayer+0.5)));
+  if (t.a < 0.5) discard;
+  vec3 alb = t.rgb*t.rgb;
+  vec3 N = normalize(vN);
+  vec3 lit = uAmb*uAmbCol;
+  vec3 L = uLPos - vPos; float d = length(L); L /= max(d,1e-4);
+  float c = dot(-L, uLDir);
+  float spot = smoothstep(0.815,0.958,c);
+  spot = spot*spot*0.78 + smoothstep(0.935,0.993,c)*0.55;
+  float spill = smoothstep(0.3,0.9,c)*0.05;
+  float ndl = max(dot(N,L),0.0);
+  float att = 1.0/(1.0+0.42*d*d);
+  lit += uFlash*(spot+spill)*att*(0.22+0.78*ndl)*vec3(1.0,0.93,0.80)*4.6;
+  for (int i=0;i<8;i++){
+    if (i>=uNL) break;
+    vec4 b = uPB[i];
+    if (vPos.x<b.x || vPos.z<b.y || vPos.x>b.z || vPos.z>b.w) continue;
+    vec3 Lp = uPL[i].xyz - vPos; float dp = length(Lp); Lp /= max(dp,1e-4);
+    float f = clamp(1.0-dp/uPL[i].w,0.0,1.0); f*=f;
+    lit += uPC[i].rgb*f*(0.3+0.7*max(dot(N,Lp),0.0));
+  }
+  vec3 col = alb*lit;
+  col = col/(1.0+0.62*col) + alb*vEmit;
+  col *= exp(-uFog*length(uCam - vPos));
+  o = vec4(sqrt(col),1.0);
+}`;
+
+const VS_POST = `#version 300 es
+out vec2 vUV;
+void main(){ vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); vUV = p; gl_Position = vec4(p*2.0-1.0,0.0,1.0); }`;
+
+const FS_POST = `#version 300 es
+precision highp float;
+in vec2 vUV;
+uniform sampler2D uScene;
+uniform vec2 uRes;
+uniform float uTime, uStatic, uFade, uRed, uAb, uGamma, uGrain, uWhite, uHappy;
+out vec4 o;
+float hash(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
+void main(){
+  vec2 uv = vUV;
+  float t = floor(uTime*30.0);
+  float ln = floor(uv.y*110.0);
+  float tr = step(1.0-uStatic*0.55, hash(vec2(ln*0.37,t)))*(hash(vec2(ln,t*1.7))-0.5)*0.14*uStatic;
+  uv.x += tr;
+  vec2 c = uv-0.5; float r2 = dot(c,c);
+  vec2 off = c*(0.0035+uAb*0.03)*(0.5+r2*2.0);
+  vec3 col = vec3(texture(uScene,uv+off).r, texture(uScene,uv).g, texture(uScene,uv-off).b);
+  col = pow(max(col,0.0), vec3(1.0/uGamma));
+  float l = dot(col, vec3(0.3,0.59,0.11));
+  col = mix(vec3(l), col, mix(0.84, 1.3, uHappy))*mix(vec3(0.97,1.0,1.03), vec3(1.05,1.0,0.99), uHappy);
+  col = col*(1.0+0.22*uHappy) + 0.05*uHappy;
+  float n = hash(gl_FragCoord.xy*0.61 + t*13.1);
+  col += (n-0.5)*(uGrain + uStatic*0.4);
+  float sn = step(1.0-uStatic*0.22, hash(gl_FragCoord.xy*0.37 + t*7.7));
+  col = mix(col, vec3(0.78), sn*uStatic);
+  col *= 0.94+0.06*sin(gl_FragCoord.y*1.5708);
+  col *= 1.0 - smoothstep(0.16,0.72,r2)*mix(0.82, 0.1, uHappy);
+  col = mix(col, vec3(0.32,0.0,0.0), uRed);
+  col += uWhite;
+  col *= uFade;
+  o = vec4(col,1.0);
+}`;
+
+function mkProg(vs, fs) {
+  const p = gl.createProgram();
+  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(sh));
+    gl.attachShader(p, sh);
+  }
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(p));
+  return p;
+}
+function bindLayout(vao, vbo) {
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  const st = 40;
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, st, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, st, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, st, 20);
+  gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 3, gl.FLOAT, false, st, 24);
+  gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 1, gl.FLOAT, false, st, 36);
+}
+function glInit() {
+  gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false });
+  if (!gl) return false;
+  R.progS = mkProg(VS_SCENE, FS_SCENE); R.progP = mkProg(VS_POST, FS_POST);
+  for (const n of ['uVP', 'uTex', 'uCam', 'uLPos', 'uLDir', 'uFlash', 'uFog', 'uAmb', 'uAmbCol', 'uNL', 'uPL', 'uPC', 'uPB']) R.uS[n] = gl.getUniformLocation(R.progS, n);
+  for (const n of ['uScene', 'uRes', 'uTime', 'uStatic', 'uFade', 'uRed', 'uAb', 'uGamma', 'uGrain', 'uWhite', 'uHappy']) R.uP[n] = gl.getUniformLocation(R.progP, n);
+  R.vaoS = gl.createVertexArray(); R.vboS = gl.createBuffer(); bindLayout(R.vaoS, R.vboS);
+  gl.bufferData(gl.ARRAY_BUFFER, SM.a.subarray(0, SM.n * 10), gl.STATIC_DRAW); R.nStatic = SM.n;
+  R.vaoD = gl.createVertexArray(); R.vboD = gl.createBuffer(); bindLayout(R.vaoD, R.vboD);
+  gl.bufferData(gl.ARRAY_BUFFER, DYN.a.byteLength, gl.DYNAMIC_DRAW); R.vboDCap = DYN.a.length;
+  R.vaoE = gl.createVertexArray();
+  gl.bindVertexArray(null);
+  // 텍스처 배열
+  R.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D_ARRAY, R.tex);
+  const n = texCanvases.length;
+  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 9, gl.RGBA8, TS, TS, n);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  for (let i = 0; i < n; i++) gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i, TS, TS, 1, gl.RGBA, gl.UNSIGNED_BYTE, texCanvases[i]);
+  gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  const an = gl.getExtension('EXT_texture_filter_anisotropic');
+  if (an) gl.texParameterf(gl.TEXTURE_2D_ARRAY, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  return true;
+}
+function glResize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 1);
+  const w = Math.max(2, Math.floor(innerWidth * dpr)), h = Math.max(2, Math.floor(innerHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const rh = Math.min(h, 540), rw = Math.max(2, Math.round((rh * w) / h));
+  if (rw === R.rw && rh === R.rh) return;
+  R.rw = rw; R.rh = rh;
+  if (!R.fbo) { R.fbo = gl.createFramebuffer(); R.fboTex = gl.createTexture(); R.fboDepth = gl.createRenderbuffer(); }
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.fboTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, rw, rh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindRenderbuffer(gl.RENDERBUFFER, R.fboDepth); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, rw, rh);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, R.fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, R.fboTex, 0);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, R.fboDepth);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+const _vp = new Float32Array(16), _pl = new Float32Array(32), _pc = new Float32Array(32), _pb = new Float32Array(32);
+function setVP() {
+  const cy = Math.cos(CAM.yaw), sy = Math.sin(CAM.yaw), cp = Math.cos(CAM.pitch), sp = Math.sin(CAM.pitch);
+  const Fx = sy * cp, Fy = sp, Fz = -cy * cp, Rx = cy, Rz = sy, Ux = -sy * sp, Uy = cp, Uz = cy * sp;
+  const ex = CAM.x, ey = CAM.y, ez = CAM.z;
+  const v03 = -(Rx * ex + Rz * ez), v13 = -(Ux * ex + Uy * ey + Uz * ez), v23 = Fx * ex + Fy * ey + Fz * ez;
+  const f = 1 / Math.tan((CAM.fov * Math.PI) / 360), asp = R.rw / R.rh, n = 0.02, fa = 60;
+  const p00 = f / asp, p11 = f, p22 = (fa + n) / (n - fa), p23 = (2 * fa * n) / (n - fa);
+  _vp[0] = p00 * Rx; _vp[4] = 0; _vp[8] = p00 * Rz; _vp[12] = p00 * v03;
+  _vp[1] = p11 * Ux; _vp[5] = p11 * Uy; _vp[9] = p11 * Uz; _vp[13] = p11 * v13;
+  _vp[2] = p22 * -Fx; _vp[6] = p22 * -Fy; _vp[10] = p22 * -Fz; _vp[14] = p22 * v23 + p23;
+  _vp[3] = Fx; _vp[7] = Fy; _vp[11] = Fz; _vp[15] = -v23;
+}
+/* env: {flash, fog, amb, lpos, ldir, lights[], post{}} */
+function drawScene(env) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, R.fbo); gl.viewport(0, 0, R.rw, R.rh);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.disable(gl.BLEND);
+  gl.useProgram(R.progS);
+  setVP(); gl.uniformMatrix4fv(R.uS.uVP, false, _vp);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D_ARRAY, R.tex); gl.uniform1i(R.uS.uTex, 0);
+  gl.uniform3f(R.uS.uCam, CAM.x, CAM.y, CAM.z);
+  gl.uniform3f(R.uS.uLPos, env.lpos[0], env.lpos[1], env.lpos[2]);
+  gl.uniform3f(R.uS.uLDir, env.ldir[0], env.ldir[1], env.ldir[2]);
+  gl.uniform1f(R.uS.uFlash, env.flash); gl.uniform1f(R.uS.uFog, env.fog); gl.uniform1f(R.uS.uAmb, env.amb);
+  gl.uniform3f(R.uS.uAmbCol, env.ambCol[0], env.ambCol[1], env.ambCol[2]);
+  const nl = Math.min(8, env.lights.length);
+  for (let i = 0; i < nl; i++) {
+    const L = env.lights[i], j = i * 4;
+    _pl[j] = L.x; _pl[j + 1] = L.y; _pl[j + 2] = L.z; _pl[j + 3] = L.r;
+    _pc[j] = L.col[0] * L.inten; _pc[j + 1] = L.col[1] * L.inten; _pc[j + 2] = L.col[2] * L.inten; _pc[j + 3] = 0;
+    _pb[j] = L.box[0]; _pb[j + 1] = L.box[1]; _pb[j + 2] = L.box[2]; _pb[j + 3] = L.box[3];
+  }
+  gl.uniform1i(R.uS.uNL, nl); gl.uniform4fv(R.uS.uPL, _pl); gl.uniform4fv(R.uS.uPC, _pc); gl.uniform4fv(R.uS.uPB, _pb);
+  gl.bindVertexArray(R.vaoS); gl.drawArrays(gl.TRIANGLES, 0, R.nStatic);
+  if (DYN.n > 0) {
+    gl.bindVertexArray(R.vaoD); gl.bindBuffer(gl.ARRAY_BUFFER, R.vboD);
+    if (DYN.a.length !== R.vboDCap) { gl.bufferData(gl.ARRAY_BUFFER, DYN.a.byteLength, gl.DYNAMIC_DRAW); R.vboDCap = DYN.a.length; }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, DYN.a, 0, DYN.n * 10);
+    gl.drawArrays(gl.TRIANGLES, 0, DYN.n);
+  }
+  const p = env.post;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.useProgram(R.progP);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.fboTex); gl.uniform1i(R.uP.uScene, 1);
+  gl.uniform2f(R.uP.uRes, canvas.width, canvas.height);
+  gl.uniform1f(R.uP.uTime, p.time % 600); gl.uniform1f(R.uP.uStatic, p.static); gl.uniform1f(R.uP.uFade, p.fade);
+  gl.uniform1f(R.uP.uRed, p.red); gl.uniform1f(R.uP.uAb, p.ab); gl.uniform1f(R.uP.uGamma, p.gamma);
+  gl.uniform1f(R.uP.uGrain, p.grain); gl.uniform1f(R.uP.uWhite, p.white); gl.uniform1f(R.uP.uHappy, p.happy || 0);
+  gl.bindVertexArray(R.vaoE); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindVertexArray(null);
+}
+/* 카메라를 향하는 세로 빌보드. toward: 카메라 쪽으로 살짝 당김 */
+function billboard(x, y0, z, w, h, layer, emit, flip, toward) {
+  let nx = CAM.x - x, nz = CAM.z - z; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+  if (toward) { x += nx * toward; z += nz * toward; }
+  const rx = nz * w * 0.5, rz = -nx * w * 0.5;
+  vquad(DYN, x - rx, z - rz, x + rx, z + rz, y0, y0 + h, layer, emit, flip ? 1 : 0, flip ? 0 : 1, 0, 1);
+}
+
+/* ---------------- audio (WebAudio · 전부 실시간 합성) ---------------- */
+const AU = { ctx: null, on: false, genHum: null };
+function setPannerPos(p, x, y, z) {
+  if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
+}
+function audioInit() {
+  if (AU.ctx) { AU.ctx.resume(); return; }
+  const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  const ctx = new C(); AU.ctx = ctx;
+  AU.comp = ctx.createDynamicsCompressor();
+  AU.comp.threshold.value = -16; AU.comp.knee.value = 12; AU.comp.ratio.value = 8; AU.comp.attack.value = 0.003; AU.comp.release.value = 0.25;
+  AU.master = ctx.createGain(); AU.master.gain.value = SET.vol;
+  AU.master.connect(AU.comp); AU.comp.connect(ctx.destination);
+  AU.dry = ctx.createGain(); AU.dry.connect(AU.master);
+  // 리버브용 임펄스(감쇠하는 노이즈)
+  const n = Math.floor(ctx.sampleRate * 2.8), ir = ctx.createBuffer(2, n, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c); let lp = 0;
+    for (let i = 0; i < n; i++) { const t = i / n, w = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.6); lp += (w - lp) * (0.55 - 0.4 * t); d[i] = lp * 1.6; }
+  }
+  AU.rev = ctx.createConvolver(); AU.rev.buffer = ir;
+  AU.revOut = ctx.createGain(); AU.revOut.gain.value = 0.6; AU.rev.connect(AU.revOut); AU.revOut.connect(AU.master);
+  const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  AU.noise = nb; AU.on = true;
+  auLoops();
+}
+function auLoops() {
+  const ctx = AU.ctx, nb = AU.noise;
+  // 저음 드론 + 바람 + 긴장음
+  AU.droneG = ctx.createGain(); AU.droneG.gain.value = 0; AU.droneG.connect(AU.dry);
+  const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 170; dlp.connect(AU.droneG);
+  for (const f of [55, 55.6, 82.9]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = f > 60 ? 0.25 : 0.5; o.connect(og); og.connect(dlp); o.start(); }
+  const ws = ctx.createBufferSource(); ws.buffer = nb; ws.loop = true;
+  const wbp = ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 280; wbp.Q.value = 0.6;
+  AU.windG = ctx.createGain(); AU.windG.gain.value = 0; ws.connect(wbp); wbp.connect(AU.windG); AU.windG.connect(AU.dry); AU.windG.connect(AU.rev);
+  const wl = ctx.createOscillator(); wl.frequency.value = 0.06; const wlg = ctx.createGain(); wlg.gain.value = 130; wl.connect(wlg); wlg.connect(wbp.frequency); wl.start(); ws.start();
+  AU.tensG = ctx.createGain(); AU.tensG.gain.value = 0; AU.tensG.connect(AU.dry); AU.tensG.connect(AU.rev);
+  for (const f of [1975, 2093, 2217]) { const o = ctx.createOscillator(); o.frequency.value = f; const og = ctx.createGain(); og.gain.value = 0.33; o.connect(og); og.connect(AU.tensG); o.start(); }
+
+  // 적의 숨소리(3D 위치)
+  const p = ctx.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1.0; p.rolloffFactor = 1.5; p.maxDistance = 50;
+  AU.enPan = p; AU.enLP = ctx.createBiquadFilter(); AU.enLP.type = 'lowpass'; AU.enLP.frequency.value = 5000;
+  AU.enG = ctx.createGain(); AU.enG.gain.value = 0;
+  const bs = ctx.createBufferSource(); bs.buffer = nb; bs.loop = true;
+  const bbp = ctx.createBiquadFilter(); bbp.type = 'bandpass'; bbp.frequency.value = 520; bbp.Q.value = 1.4;
+  const bg = ctx.createGain(); bg.gain.value = 2.6;
+  const bl = ctx.createOscillator(); bl.frequency.value = 0.42; const blg = ctx.createGain(); blg.gain.value = 2.3; bl.connect(blg); blg.connect(bg.gain); bl.start();
+  bs.connect(bbp); bbp.connect(bg); bg.connect(AU.enG); bs.start();
+  const glp = ctx.createBiquadFilter(); glp.type = 'lowpass'; glp.frequency.value = 420;
+  const gg = ctx.createGain(); gg.gain.value = 0.55;
+  for (const f of [46, 49.3, 92.7]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(glp); o.start(); }
+  glp.connect(gg); gg.connect(AU.enG);
+  AU.enG.connect(AU.enLP); AU.enLP.connect(p); p.connect(AU.dry);
+  const es = ctx.createGain(); es.gain.value = 0.5; p.connect(es); es.connect(AU.rev);
+
+  // 화면 노이즈 소리
+  const ss = ctx.createBufferSource(); ss.buffer = nb; ss.loop = true;
+  const shp = ctx.createBiquadFilter(); shp.type = 'highpass'; shp.frequency.value = 1800;
+  AU.staticG = ctx.createGain(); AU.staticG.gain.value = 0; ss.connect(shp); shp.connect(AU.staticG); AU.staticG.connect(AU.dry); ss.start();
+}
+function auOut(node, o) {
+  const ctx = AU.ctx; let n = node;
+  if (o.pos) {
+    const p = ctx.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1.2; p.rolloffFactor = o.roll || 1.3; p.maxDistance = 60;
+    setPannerPos(p, o.pos[0], 0.6, o.pos[1]); n.connect(p); n = p;
+  } else if (o.pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(o.pan, -1, 1); n.connect(p); n = p; }
+  n.connect(AU.dry);
+  const rv = o.rev === undefined ? 0.35 : o.rev;
+  if (rv > 0) { const s = ctx.createGain(); s.gain.value = rv; n.connect(s); s.connect(AU.rev); }
+}
+function auEnv(g, o, t0, a, dur) {
+  const pk = o.gain || 0.3;
+  g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(pk, t0 + a);
+  if (o.sus) { g.gain.setValueAtTime(pk, t0 + a + dur); g.gain.linearRampToValueAtTime(0.0001, t0 + a + dur + 0.2); return t0 + a + dur + 0.25; }
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + dur); return t0 + a + dur + 0.05;
+}
+function sNoise(o) {
+  if (!AU.on) return; const ctx = AU.ctx, t0 = ctx.currentTime + (o.t || 0), dur = o.dur || 0.2, a = o.a || 0.004;
+  const src = ctx.createBufferSource(); src.buffer = AU.noise; src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = o.type || 'lowpass'; f.Q.value = o.q || 0.8;
+  f.frequency.setValueAtTime(o.f0 || 800, t0); if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t0 + a + dur);
+  const g = ctx.createGain(); const end = auEnv(g, o, t0, a, dur);
+  src.connect(f); f.connect(g); auOut(g, o);
+  src.start(t0, Math.random() * 1.5); src.stop(end);
+}
+function sTone(o) {
+  if (!AU.on) return; const ctx = AU.ctx, t0 = ctx.currentTime + (o.t || 0), dur = o.dur || 0.3, a = o.a || 0.004;
+  const os = ctx.createOscillator(); os.type = o.type || 'sine';
+  os.frequency.setValueAtTime(o.f0 || 440, t0); if (o.f1) os.frequency.exponentialRampToValueAtTime(o.f1, t0 + a + dur);
+  const g = ctx.createGain(); const end = auEnv(g, o, t0, a, dur);
+  let n = os;
+  if (o.lp) { const f = ctx.createBiquadFilter(); f.type = o.ftype || 'lowpass'; f.frequency.value = o.lp; f.Q.value = o.q || 0.7; os.connect(f); n = f; }
+  n.connect(g); auOut(g, o);
+  os.start(t0); os.stop(end);
+}
+function loopNoise(o) {
+  const ctx = AU.ctx, src = ctx.createBufferSource(); src.buffer = AU.noise; src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = o.type || 'highpass'; f.frequency.value = o.f0 || 1500; f.Q.value = o.q || 0.7;
+  const g = ctx.createGain(); g.gain.value = o.gain || 0.2;
+  src.connect(f); f.connect(g); auOut(g, o); src.start();
+  return { stop() { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); src.stop(ctx.currentTime + 0.3); } catch (e) { /* 이미 멈춤 */ } } };
+}
+function startGenHum(pos) {
+  if (!AU.on || AU.genHum) return; const ctx = AU.ctx;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 2.5);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; const os = [];
+  for (const f of [50, 100.4, 149]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); os.push(o); }
+  lp.connect(g); auOut(g, { pos, rev: 0.4, roll: 1.0 });
+  AU.genHum = { stop() { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.2); os.forEach((o) => o.stop(ctx.currentTime + 1)); } catch (e) { /* 무시 */ } AU.genHum = null; } };
+}
+/* st: {x,z,yaw,fear,static,amb,enOn,enX,enZ,enOcc,enChase} */
+function audioFrame(st) {
+  if (!AU.on) return; const ctx = AU.ctx, L = ctx.listener, t = ctx.currentTime;
+  const fx = Math.sin(st.yaw), fz = -Math.cos(st.yaw);
+  if (L.positionX) {
+    L.positionX.value = st.x; L.positionY.value = 0.6; L.positionZ.value = st.z;
+    L.forwardX.value = fx; L.forwardY.value = 0; L.forwardZ.value = fz; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+  } else { L.setPosition(st.x, 0.6, st.z); L.setOrientation(fx, 0, fz, 0, 1, 0); }
+  AU.droneG.gain.setTargetAtTime(st.amb * (0.09 + st.fear * 0.2), t, 0.5);
+  AU.windG.gain.setTargetAtTime(st.amb * 0.05, t, 0.5);
+  AU.tensG.gain.setTargetAtTime(st.fear * st.fear * 0.022, t, 0.4);
+  AU.staticG.gain.setTargetAtTime(st.static * 0.15, t, 0.05);
+  if (st.enOn) {
+    setPannerPos(AU.enPan, st.enX, 0.7, st.enZ);
+    AU.enG.gain.setTargetAtTime(st.enChase ? 0.9 : 0.5, t, 0.2);
+    AU.enLP.frequency.setTargetAtTime(st.enOcc ? 520 : 5000, t, 0.15);
+  } else AU.enG.gain.setTargetAtTime(0, t, 0.15);
+}
+
+/* --- 효과음 --- */
+function sStep(run) {
+  const g = run ? 3.4 : 2.1;
+  sNoise({ dur: 0.1, f0: 420 + Math.random() * 120, f1: 110, gain: g, rev: 0.25, pan: (Math.random() - 0.5) * 0.3 });
+  sNoise({ dur: 0.03, type: 'bandpass', f0: 1500 + Math.random() * 900, q: 1.5, gain: g * 0.07, rev: 0.3 });
+}
+function sHeart(v) {
+  sTone({ f0: 66, f1: 38, dur: 0.13, gain: 0.5 * v, rev: 0 }); sTone({ f0: 132, f1: 76, dur: 0.1, gain: 0.16 * v, rev: 0 });
+  sTone({ t: 0.16, f0: 58, f1: 34, dur: 0.15, gain: 0.38 * v, rev: 0 }); sTone({ t: 0.16, f0: 116, f1: 68, dur: 0.11, gain: 0.12 * v, rev: 0 });
+}
+function sCreak(pos, long) {
+  const d = long ? 1.9 : 0.55;
+  sTone({ type: 'sawtooth', f0: 62 + Math.random() * 20, f1: 48 + Math.random() * 30, dur: d, a: 0.05, gain: 2.4, lp: 900 + Math.random() * 500, ftype: 'bandpass', q: 9, pos, rev: 0.5, sus: long });
+  sTone({ type: 'sawtooth', f0: 93, f1: 71, dur: d * 0.8, a: 0.08, gain: 1.2, lp: 1900, ftype: 'bandpass', q: 12, pos, rev: 0.5, sus: long });
+}
+function sThud(pos, big) {
+  sNoise({ dur: big ? 0.5 : 0.22, f0: big ? 420 : 300, f1: 55, gain: big ? 1.0 : 0.5, pos, rev: big ? 0.9 : 0.5, roll: big ? 0.7 : 1.3 });
+  if (big) sTone({ f0: 80, f1: 34, dur: 0.5, gain: 0.8, pos, rev: 0.6, roll: 0.7 });
+}
+function sRattle(pos) {
+  for (let i = 0; i < 4; i++) sNoise({ t: i * 0.07 + Math.random() * 0.02, dur: 0.035, type: 'bandpass', f0: 2100 + Math.random() * 1200, q: 3, gain: 0.3, pos, rev: 0.3 });
+  sNoise({ dur: 0.1, f0: 240, f1: 90, gain: 0.3, pos });
+}
+function sUnlock(pos) {
+  sNoise({ dur: 0.03, type: 'bandpass', f0: 3200, q: 4, gain: 0.35, pos }); sNoise({ t: 0.12, dur: 0.05, type: 'bandpass', f0: 1700, q: 3, gain: 0.4, pos });
+  sNoise({ t: 0.16, dur: 0.12, f0: 280, f1: 80, gain: 0.4, pos });
+}
+function sPick() { sNoise({ dur: 0.05, type: 'highpass', f0: 2600, gain: 0.16, rev: 0.2 }); sTone({ t: 0.03, f0: 880, dur: 0.18, gain: 0.07, rev: 0.5 }); sTone({ t: 0.09, f0: 1320, dur: 0.25, gain: 0.05, rev: 0.5 }); }
+function sPaper() { for (let i = 0; i < 3; i++) sNoise({ t: i * 0.06, dur: 0.07, type: 'highpass', f0: 2200 + Math.random() * 2000, gain: 0.12, rev: 0.15 }); }
+function sClick() { sNoise({ dur: 0.02, type: 'bandpass', f0: 2600, q: 3, gain: 0.25, rev: 0.1 }); }
+function sDrip(pos) { sTone({ f0: 1300 + Math.random() * 500, f1: 620, dur: 0.07, gain: 0.9, pos, rev: 0.9 }); }
+function sClang(pos) {
+  const b = 150 + Math.random() * 190;
+  for (const [m, g] of [[1, 0.3], [2.76, 0.2], [5.4, 0.12], [8.93, 0.06]]) sTone({ f0: b * m, dur: 1.4 + Math.random(), gain: g, pos, rev: 0.9 });
+  sNoise({ dur: 0.05, type: 'bandpass', f0: 2500, gain: 0.2, pos, rev: 0.8 });
+}
+function sMoan(pos) {
+  const f = 96 + Math.random() * 30;
+  sTone({ type: 'sawtooth', f0: f, f1: f * 0.84, dur: 2.6, a: 0.7, gain: 0.8, lp: 640, ftype: 'bandpass', q: 5, pos, rev: 1.0, roll: 0.8 });
+  sTone({ type: 'sawtooth', f0: f * 1.01, f1: f * 0.85, dur: 2.6, a: 0.7, gain: 0.5, lp: 1080, ftype: 'bandpass', q: 7, pos, rev: 1.0, roll: 0.8 });
+}
+function sWhisper(pos, n, gain) {
+  let t = 0; n = n || 7;
+  for (let i = 0; i < n; i++) {
+    const d = 0.05 + Math.random() * 0.11;
+    sNoise({ t, dur: d, a: 0.02, type: 'bandpass', f0: 1400 + Math.random() * 2400, q: 1.6 + Math.random() * 2, gain: (gain || 0.16) * (0.6 + Math.random() * 0.6), pos, pan: pos ? 0 : (Math.random() - 0.5) * 1.8, rev: 0.5 });
+    t += d + 0.03 + Math.random() * 0.08;
+  }
+}
+function sKnock(pos) { for (let i = 0; i < 3; i++) sNoise({ t: i * 0.26, dur: 0.1, f0: 380, f1: 110, gain: 2.2, pos, rev: 0.8 }); }
+function sCroak(pos, gain) {            // 목 긁는 소리 — 적의 위치를 알려 주는 신호
+  let t = 0; const n = 14 + ((Math.random() * 10) | 0), gn = gain || 0.5;
+  for (let i = 0; i < n; i++) {
+    const k = i / n;
+    sNoise({ t, dur: 0.016, type: 'bandpass', f0: 620 + Math.random() * 420, q: 6, gain: gn * (0.5 + Math.sin(k * Math.PI) * 0.6), pos, rev: 0.45, roll: 1.1 });
+    sTone({ t, f0: 150, f1: 90, dur: 0.02, gain: gn * 0.3, pos, rev: 0.3, roll: 1.1 });
+    t += 0.03 + 0.045 * Math.abs(k - 0.5) + Math.random() * 0.012;
+  }
+}
+function sShriek(pos) {
+  sTone({ type: 'sawtooth', f0: 520, f1: 1480, dur: 0.9, a: 0.03, gain: 1.4, lp: 2400, q: 3, ftype: 'bandpass', pos, rev: 0.9, roll: 0.6 });
+  sTone({ type: 'sawtooth', f0: 547, f1: 1390, dur: 0.9, a: 0.03, gain: 1.2, lp: 1800, q: 4, ftype: 'bandpass', pos, rev: 0.9, roll: 0.6 });
+  sNoise({ dur: 0.9, type: 'bandpass', f0: 2600, f1: 3800, q: 2, gain: 0.8, pos, rev: 0.9, roll: 0.6 });
+}
+function sSting() {
+  sTone({ f0: 58, f1: 30, dur: 1.4, gain: 0.8, rev: 0.6 }); sNoise({ dur: 0.5, f0: 500, f1: 60, gain: 0.5, rev: 0.8 });
+  for (const f of [1244, 1318, 1480, 1865]) sTone({ f0: f, f1: f * 0.985, dur: 2.6, a: 0.01, gain: 0.05, rev: 1.0, pan: Math.random() - 0.5 });
+}
+function sScare() {
+  for (const f of [233, 311, 466, 622, 740]) sTone({ type: 'sawtooth', f0: f, f1: f * 1.9, dur: 1.2, a: 0.01, gain: 0.2, rev: 0.4 });
+  sNoise({ dur: 1.2, type: 'bandpass', f0: 1200, f1: 4200, q: 1, gain: 0.45, rev: 0.4 }); sTone({ f0: 70, f1: 28, dur: 1.2, gain: 0.7, rev: 0.3 });
+}
+function sBreath() {
+  sNoise({ dur: 0.5, a: 0.2, type: 'bandpass', f0: 900, f1: 500, q: 1.2, gain: 0.12, rev: 0.1 });
+  sNoise({ t: 0.8, dur: 0.6, a: 0.15, type: 'bandpass', f0: 600, f1: 380, q: 1.2, gain: 0.1, rev: 0.1 });
+}
+function sAlarm(pos) {
+  for (let i = 0; i < 12; i++) {
+    sTone({ t: i * 1.1, type: 'square', f0: 610, dur: 0.45, a: 0.02, gain: 0.07, lp: 1400, pos, rev: 1.0, roll: 0.3, sus: true });
+    sTone({ t: i * 1.1 + 0.55, type: 'square', f0: 455, dur: 0.45, a: 0.02, gain: 0.07, lp: 1400, pos, rev: 1.0, roll: 0.3, sus: true });
+  }
+}
+function sPowerUp(pos) {
+  sTone({ type: 'sawtooth', f0: 22, f1: 110, dur: 2.4, a: 0.3, gain: 0.5, lp: 420, pos, rev: 0.6, roll: 0.5, sus: true });
+  sNoise({ dur: 2.2, a: 0.4, f0: 200, f1: 900, gain: 0.25, pos, rev: 0.6, roll: 0.5 }); sThud(pos, true);
+}
+function sShutterMotor(dur) {
+  sTone({ type: 'sawtooth', f0: 64, f1: 72, dur, a: 0.2, gain: 0.17, lp: 500, rev: 0.4, sus: true });
+  for (let i = 0; i < dur * 9; i++) sNoise({ t: i / 9 + Math.random() * 0.04, dur: 0.05, type: 'bandpass', f0: 900 + Math.random() * 1600, q: 2, gain: 0.1, rev: 0.5 });
+}
+function sChirp(pos) { sTone({ f0: 880, f1: 1320, dur: 0.12, gain: 0.3, pos, rev: 0.3 }); sTone({ t: 0.12, f0: 1320, f1: 1760, dur: 0.16, gain: 0.24, pos, rev: 0.3 }); }
+function sStairs(pos) {
+  for (let i = 0; i < 6; i++) {
+    sNoise({ t: i * 0.24, dur: 0.1, f0: 230, f1: 80, gain: pos ? 0.6 : 0.26, pos, rev: 0.7 });
+    sNoise({ t: i * 0.24, dur: 0.03, type: 'bandpass', f0: 1800, gain: 0.06, pos, rev: 0.7 });
+  }
+}
+
+/* ---------------- game ---------------- */
+const NOTES = {
+  n0: { t: '시설 안내문', b: '[ 모운정신병원 시설 안내 ]\n\n· 정문 전동 셔터는 출입구 옆 조작반으로 여닫습니다.\n· 정전 시 셔터는 작동하지 않습니다.\n  비상 전원은 지하 1층 발전기실에서 수동으로 가동하십시오.\n· 지하 출입문 열쇠는 원장실에서 보관합니다.\n· 야간에는 환자의 안정을 위해 복도 조명을 소등합니다.\n\n                    — 시설관리과, 1998. 3.' },
+  n1: { t: '101호 환자의 일기', b: '10월 2일\n밤마다 아래층에서 소리가 난다. 누가 벽을 긁는다.\n간호사 선생님은 지하에는 창고밖에 없다고 한다.\n\n10월 9일\n거짓말이다. 지하에는 병동이 하나 더 있다.\n밤에 복도 불이 꺼지면 계단 문 열리는 소리가 들린다.\n\n10월 17일\n어젯밤 누가 내 침대 옆에 서 있었다.\n자는 척했다. 아주 오래 서 있다가 갔다.' },
+  n2: { t: '구겨진 쪽지', b: '그 사람이 올라오는 밤에는\n\n    불을 끄고\n    숨을 죽이고\n    절대로 뛰지 말 것.\n\n그 사람은 빛을 본다.\n그 사람은 발소리를 듣는다.\n어둠 속에 가만히 있으면 그냥 지나간다.\n\n                    — 104호 일동' },
+  n3: { t: '야간 근무 일지', b: '10월 29일 야간\n\n02:10  순회 중 원장실 열쇠 분실. 106호에서 환자를\n       진정시키다 떨어뜨린 것 같다. 아침에 다시 찾아볼 것.\n02:40  106호 환자가 "아래에서 올라온 사람이 보고 있었다"고 함.\n       망상으로 기록.\n03:15  지하 계단 문이 열려 있었음. 분명히 잠갔는데.\n03:20  4-07호가 또 문 앞에 서 있다는 연락.\n       벌써 두 달째 잠을 안 잔다.\n\n다음 달에 그만둔다고 말할 생각이다.' },
+  n4: { t: '원장의 연구 일지', b: '피험자 4-07\n\n수면 박탈 61일째.\n피험자는 더 이상 눈을 감지 않는다. 깜빡이지도 않는다.\n맥박은 느려지는데 근력은 오히려 늘었다.\n\n88일째.\n불 꺼진 격리실 안에서도 관찰창 너머의 나를 정확히 본다.\n빛이 조금이라도 있으면 그쪽으로 고개를 돌린다.\n\n102일째.\n심장이 멎었다. 그런데 그는 아직 서 있다.\n이건 실패가 아니다.\n누구도 4병동에 들이지 마라. 지하 열쇠는 내가 직접 보관한다.' },
+  n5: { t: '전기경련요법 시행 기록', b: '환자: 4-07 (성명 미상)\n\n 9회차 — 반응 없음\n10회차 — 반응 없음. 출력 상향\n11회차 — 반응 없음. 출력 최대\n12회차 — 시술 중 정전. 예비 퓨즈로 교체 후 재개.\n         환자는 시술 내내 눈을 뜨고 있었음.\n         웃고 있었음.\n\n※ 남은 예비 퓨즈 1개는 이 방에 보관.' },
+  n6: { t: '사고 경위서 (초안)', b: '1998년 11월 4일 03시경, 본원 전체 정전.\n지하 발전기실 확인 결과 퓨즈 3개가 모두 뽑혀 있었음.\n정전과 동시에 4병동 전자식 잠금장치가 전부 해제됨.\n\n06시 교대 근무자 도착 당시\n    야간 직원  9명 — 전원 소재 불명\n    입원 환자 31명 — 전원 소재 불명\n정문 셔터는 안쪽에서 내려져 있었음.\n\n원내에서 발견된 것은\n침대마다 가지런히 개어 놓은 환자복뿐이었음.' },
+  n7: { t: '초진 기록', b: '1994. 12. 21.\n\n성명: 미상      연령: 미상 (30대 추정)\n경위: 폭설이 내린 새벽, 본원 정문 앞에 서 있는 것을\n      수위가 발견. 신분증 없음. 연고자 없음.\n\n면담: 질문에 대답하지 않음. 필담으로 한 줄만 적음.\n      「잠들면 그것이 나 대신 일어납니다」\n\n소견: 중증 불면, 망상.\n      원장 지시로 지하 4병동 7호실에 격리.' },
+  n8: { t: '인수인계 메모', b: '· 손전등 배터리는 이 창고, 약제실, 린넨실에 조금씩 남아 있음.\n\n· 발전기 예비 퓨즈 위치\n    1) 1층 전기치료실\n    2) 지하 영안실\n    3) 하나는 4-07호 환자가 가져갔다고 함.\n       누가 좀 찾아와 줘요. 나는 못 들어가겠음.\n\n· 지하에서는 뛰지 말 것. 소리가 울림.\n· 밤에 4병동 쪽에서 문 두드리는 소리가 나도\n  절대 열어 주지 말 것.' },
+  n9: { t: '비상 발전기 가동 절차', b: '1. 제어반에 퓨즈 3개를 모두 꽂는다.\n2. 가동 레버를 끝까지 내린다.\n3. 경보가 울리면 정상. 전 층 비상등 점등.\n\n※ 가동하면 건물 전체에 경보가 울립니다.\n\n(누군가 볼펜으로 눌러 쓴 글씨)\n    켜면 그것도 깬다' },
+  na: { t: '안치 대장', b: '1998년 11월\n\n11. 1.   1번 서랍   남, 60대, 병사\n11. 2.   2번 서랍   여, 40대, 병사\n11. 3.   3번 서랍   남, 연령 미상, 4-07호, 심정지\n\n11. 4.   아침 확인 — 1, 2, 3번 서랍 모두 비어 있음.\n         3번 서랍 문짝이 안쪽에서 밀려 찌그러져 있음.' },
+  nb: { t: '특수처치실 사용 기록', b: '피험자 4-07 — 사망 판정 후 관찰\n\n호흡 없음. 심박 없음. 동공 반사 없음.\n그러나 조명을 켜면 눈동자가 빛을 따라 움직인다.\n조명을 끄면 멈춘다.\n\n(아래는 떨리는 글씨)\n\n끄면 멈추는 게 아니다.\n끄면 우리가 그를 못 보는 것뿐이다.' },
+  nc: { t: '벽에 새긴 글씨', b: '(패딩에 손톱으로 새긴 글씨)\n\n잠들지 마  잠들지 마  잠들지 마  잠들지 마\n잠들지 마  잠들지 마  잠들지 마  잠들지 마\n\n            1094일\n\n이제 나는 자고\n그것이 일어나 있다\n\n불을 켜면      그것이 간다' },
+};
+const NOTE_TOTAL = Object.keys(NOTES).length;
+const TIPS = [
+  '그것은 손전등 불빛을 멀리서도 본다. [F]로 불을 끄고 가만히 서 있으면 그냥 지나친다.',
+  '이미 들켜서 쫓기는 중이라면 불을 꺼도 소용없다. 달려서 시야를 끊어라.',
+  '뛰면 발소리가 난다. 가까이 있을 때는 걸어라.',
+  '문을 닫아 두면, 그것이 문을 여는 동안 시간을 벌 수 있다.',
+  '손전등이 깜빡이고 화면이 지직거리면 그것이 가까이 있다는 뜻이다.',
+  '막다른 방보다 복도가 이어진 쪽으로 달아나라.',
+  '목을 긁는 소리가 어느 쪽에서 들리는지 잘 들어라.',
+];
+const INTRO = ['2026년 11월, 새벽 두 시.', '구독자 삼백 명짜리 폐건물 탐험 채널.', '오늘 찍을 곳은 스물여덟 해 전에 문을 닫은 모운정신병원.', '반쯤 내려온 정문 셔터 밑으로 기어 들어온 순간 ——', '등 뒤에서, 셔터가 끝까지 내려갔다.'];
+const END_LINES = ['밖이다.', '새벽 공기가 폐 속까지 차갑게 들어온다.', '등 뒤에서 셔터가 다시 내려가는 소리가 났다. 돌아보지 않았다.', '집에 돌아와, 카메라에 찍힌 영상을 처음부터 돌려 봤다.', '로비를 빠져나오는 마지막 장면.', '내 바로 뒤에, 누군가 서 있었다.', '그리고 그 사람은 —— 나와 함께 밖으로 나왔다.'];
+
+const K = {};
+const P = { x: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vz: 0, bob: 0, bobAmt: 0, stamina: 1, exhausted: false, battery: 1, flash: true, swapT: 0, flick: 0, dark: 0, lyaw: 0, lpitch: 0, lit: 1, running: false, moving: false, look: 0 };
+const viewYaw = () => P.yaw + P.look * Math.PI;      // 스페이스바를 누르는 동안 뒤를 본다(이동 방향은 그대로)
+const INV = { key1: false, key2: false, fuses: 0, fusesIn: 0, batt: 0, notes: {} };
+let FLAGS = {};
+const EN = { active: false, x: 0, z: 0, hx: 0, hz: 1, state: 'patrol', path: null, pi: 0, repath: 0, seeT: 99, lkx: 0, lkz: 0, timer: 0, wait: 0, grace: 0, stun: 0, anim: 0, croakT: 4, stepT: 0, rage: false, reloc: 0, lastShriek: -99, see: false, same: false, dist: 99, moving: false };
+const APP = { A1: { on: false, done: false, seen: 0 }, A2: { on: true, done: false, seen: 0 } };
+const G = {
+  state: 'boot', time: 0, rt: 0, playTime: 0, deaths: 0, fear: 0, shake: 0, shutter: 0, cell: -1,
+  fx: { static: 0, fade: 1, red: 0, kick: 0, white: 0 }, trans: null, cp: null, seq: [], subQ: [], subT: 0, subGap: 0, hintT: 0, locT: 0, locName: '',
+  target: null, hud: {}, hudDirty: true, ambT: 6, hbT: 0, dieT: 0, dieStage: 0, noteId: null, unlockT: 0, introTimer: 0, endTimer: 0, scareT: 0, titleT: 3,
+};
+const ENV = { flash: 1, fog: 0.13, amb: 0.011, ambCol: [0.55, 0.68, 1.0], lpos: [0, 0, 0], ldir: [0, 0, -1], lights: [], post: { static: 0, fade: 1, red: 0, ab: 0, gamma: 1, grain: 0.07, white: 0, time: 0 } };
+
+const hudDirty = () => { G.hudDirty = true; };
+const fmtTime = (s) => [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((v) => String(v).padStart(2, '0')).join(':');
+function say(text, dur) { if (G.subQ.length >= 2) G.subQ.shift(); G.subQ.push({ text, dur: dur || 3.4 }); }
+function hint(text, dur) { const h = $('hint'); h.textContent = text; h.style.opacity = 1; G.hintT = dur || 6; }
+function after(sec, fn) { G.seq.push({ t: G.time + sec, fn }); }
+function runSeq() { for (let i = G.seq.length - 1; i >= 0; i--) if (G.seq[i].t <= G.time) { const f = G.seq[i].fn; G.seq.splice(i, 1); f(); } }
+function flashFace(dur) { G.scareT = dur; $('scare').style.display = 'block'; }
+const doorById = (id) => W.doors.find((d) => d.id === id);
+
+/* ---------- 해피 모드: 밝은 화면 + 귀여운 유령이 따라다니고 공격하지 않는다 ---------- */
+function happySpawn() {
+  const dm = distMap(Math.floor(P.x), Math.floor(P.z)), cand = [];
+  for (const c of W.openCells[levelOf(P.z)]) { const d = dm[idxOf(c[0], c[1])]; if (d >= 2 && d <= 4) cand.push(c); }
+  const c = cand.length ? pick(cand) : [Math.floor(P.x), Math.floor(P.z)];
+  EN.active = true; EN.x = c[0] + 0.5; EN.z = c[1] + 0.5; EN.path = null; EN.pi = 0; EN.lost = 0; EN.hopT = 0; EN.croakT = 1.5;
+}
+function updateHappyGhost(dt) {
+  EN.anim += dt; EN.grace = 0; EN.stun = 0; EN.see = false; EN.hidden = false; EN.state = 'follow'; EN.moving = false;
+  const pl = levelOf(P.z), same = pl === levelOf(EN.z), dist = Math.hypot(P.x - EN.x, P.z - EN.z);
+  EN.same = same; EN.dist = same ? dist : 99;
+  if (!same) {                                    // 층이 달라지면 곧 계단으로 따라온다
+    EN.hopT = (EN.hopT || 0) + dt;
+    if (EN.hopT > 1.6) { const s = W.stairs[pl === 0 ? '1' : '2']; EN.x = s.x + 0.5; EN.z = s.z + 0.5; EN.path = null; EN.hopT = 0; }
+    return;
+  }
+  EN.hopT = 0; EN.repath -= dt;
+  if (EN.repath <= 0) {
+    EN.repath = 0.3;
+    const p = bfsPath(Math.floor(EN.x), Math.floor(EN.z), Math.floor(P.x), Math.floor(P.z));
+    if (p && p.length) p.pop();                   // 플레이어 칸 바로 앞까지만
+    EN.path = p; EN.pi = 0; EN.lost = p ? 0 : (EN.lost || 0) + 0.3;
+  }
+  if (dist > 1.15 && EN.path && EN.path.length) enMove(dt, clamp(dist * 1.6, 1.2, 3.3));
+  if (EN.lost > 3 && dist > 3) happySpawn();      // 길이 막히면 근처로 폴짝
+  EN.croakT -= dt;
+  if (EN.croakT <= 0) { EN.croakT = rr(4, 9); if (dist < 8) sChirp([EN.x, EN.z]); }
+}
+function setHappy(on, quiet) {
+  SET.happy = !!on; saveSet();
+  for (const id of ['btnHappyT', 'btnHappyP']) { const b = $(id); b.textContent = '해피 모드: ' + (on ? '켜짐' : '꺼짐'); b.classList.toggle('on', !!on); }
+  $('happytag').style.display = on ? 'block' : 'none';
+  if (quiet || !['play', 'pause', 'note'].includes(G.state)) return;
+  EN.path = null; EN.pi = 0;
+  if (on) { G.fear = 0; G.fx.static = 0; G.fx.kick = 0; hint('해피 모드 켜짐 · 유령이 얌전히 따라다닌다 ([H]로 끄기)', 5); }
+  else {
+    if (FLAGS.ev_key1 || FLAGS.power) { EN.active = true; EN.rage = !!FLAGS.power; EN.state = EN.rage ? 'chase' : 'patrol'; EN.grace = 8; EN.stun = 0; EN.seeT = 99; EN.calm = 12; placeEnemy(10, 40); }
+    else { EN.active = false; EN.same = false; EN.dist = 99; }
+    hint('해피 모드 꺼짐', 3);
+  }
+}
+
+/* ---------- 목표 ---------- */
+function objective() {
+  if (FLAGS.shutterOn) return '탈출하라!';
+  if (FLAGS.power) return '1층 로비로 돌아가 정문 셔터를 열어라';
+  if (FLAGS.beenB1 || INV.fusesIn > 0) {
+    if (INV.fusesIn >= 3) return '발전기 제어반의 레버를 내려라';
+    if (!FLAGS.sawPanel) return '지하 발전기실을 찾아라';
+    const have = INV.fuses + INV.fusesIn;
+    return have >= 3 ? '퓨즈를 모두 찾았다 — 발전기 제어반에 꽂아라' : '퓨즈 3개를 찾아 발전기 제어반에 꽂아라 (' + have + '/3)';
+  }
+  if (!FLAGS.knowPower) return '병원에서 나갈 방법을 찾아라';
+  if (INV.key2 || FLAGS.stairsOpen) return '계단실에서 지하로 내려가 발전기를 켜라';
+  if (INV.key1 || FLAGS.directorOpen) return '원장실에서 지하 열쇠를 찾아라';
+  if (FLAGS.knowKey1) return '106호 병실에서 원장실 열쇠를 찾아라';
+  if (FLAGS.triedDirector) return '원장실 열쇠를 찾아라 — 간호사실에 단서가 있을지도 모른다';
+  if (!INV.notes.n0) return '비상 전원을 켤 방법을 찾아라 — 로비의 안내문을 읽어 보자';
+  return '지하 발전기를 켜야 한다 — 지하 열쇠는 원장실에 있다';
+}
+
+/* ---------- 상호작용 ---------- */
+function findTarget() {
+  const vy = viewYaw(), fx = Math.sin(vy), fz = -Math.cos(vy); let best = null, bs = -1e9;
+  const consider = (kind, obj, x, z, reach, minDot) => {
+    const dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz); if (d > reach) return;
+    const dot = d < 0.3 ? 1 : (dx * fx + dz * fz) / d; if (dot < minDot) return;
+    if (kind === 'item' && !los(P.x, P.z, x, z)) return;
+    const sc = dot * 2 - d * 0.7; if (sc > bs) { bs = sc; best = { kind, obj }; }
+  };
+  for (const it of W.items) if (!it.taken) consider('item', it, it.x, it.z, 1.0, 0.55);
+  for (const d of W.doors) { if (Math.abs(d.x + 0.5 - P.x) > 1.6 || Math.abs(d.z + 0.5 - P.z) > 1.6) continue; consider('door', d, d.x + 0.5, d.z + 0.5, 1.2, 0.7); }
+  const gf = W.dynFaces.gen, sf = W.dynFaces.sw;
+  if (gf) consider('gen', gf, gf.cx, gf.cz, 1.15, 0.7);
+  if (sf) consider('sw', sf, sf.cx, sf.cz, 1.15, 0.7);
+  return best;
+}
+function promptText(t) {
+  if (!t) return '';
+  if (t.kind === 'item') { const it = t.obj; return it.type === 'n' ? '읽기' : '줍기 — ' + ({ k1: '원장실 열쇠', k2: '지하실 열쇠' }[it.id] || { f: '퓨즈', B: '배터리' }[it.type]); }
+  if (t.kind === 'door') {
+    const d = t.obj;
+    if (d.jam) return '문 — 열리지 않는다';
+    if (d.locked) return (INV[d.locked] ? '열쇠로 열기 — ' : '잠겨 있다 — ') + d.label;
+    return (d.target ? '문 닫기 — ' : '문 열기 — ') + d.label;
+  }
+  if (t.kind === 'gen') return FLAGS.power ? '발전기 제어반 (가동 중)' : INV.fusesIn >= 3 ? '레버 내리기' : INV.fuses > 0 ? '퓨즈 꽂기' : '발전기 제어반 살펴보기';
+  if (t.kind === 'sw') return FLAGS.shutterOn ? '셔터 스위치 (작동 중)' : '셔터 스위치 누르기';
+  return '';
+}
+function interact() {
+  const t = G.target; if (!t) return;
+  if (t.kind === 'item') takeItem(t.obj);
+  else if (t.kind === 'door') useDoor(t.obj);
+  else if (t.kind === 'gen') useGen();
+  else if (t.kind === 'sw') useSwitch();
+}
+function takeItem(it) {
+  it.taken = true;
+  if (it.type === 'n') { openNote(it.id); return; }
+  sPick();
+  if (it.type === 'B') { INV.batt++; say('손전등 배터리를 챙겼다.', 2.2); }
+  else if (it.id === 'k1') { INV.key1 = true; say('원장실 열쇠다.', 2.6); evKey1(); }
+  else if (it.id === 'k2') { INV.key2 = true; say('지하실 열쇠. 이걸로 계단실 문을 열 수 있다.', 3.4); }
+  else if (it.type === 'f') {
+    INV.fuses++; say('퓨즈를 찾았다. (' + (INV.fuses + INV.fusesIn) + '/3)', 2.6);
+    if (it.id === 'f2') evMorgue(); if (it.id === 'f3') evCell();
+  }
+  hudDirty(); if (it.type !== 'B') saveCP();
+}
+function openNote(id) {
+  const n = NOTES[id]; if (!n) return;
+  sPaper(); INV.notes[id] = 1; G.noteId = id;
+  $('notetitle').textContent = n.t; $('notebody').textContent = n.b; $('note').classList.add('show');
+  G.state = 'note';
+}
+function closeNote() {
+  if (G.state !== 'note') return;
+  $('note').classList.remove('show'); G.state = 'play'; sPaper();
+  const id = G.noteId;
+  if (id === 'n0' && !FLAGS.readN0) { FLAGS.readN0 = true; FLAGS.knowPower = true; say('전기가 나가서 셔터가 안 움직이는 거다. 지하 발전기를 켜야 한다.', 4.4); say('지하 열쇠는 원장실에 있다고 했다.', 3.2); }
+  if (id === 'n3' && !FLAGS.knowKey1) { FLAGS.knowKey1 = true; if (!INV.key1) say('원장실 열쇠는 아직 106호에 떨어져 있을지도 모른다.', 4); }
+  if (id === 'n2' && !FLAGS.tipLight) { FLAGS.tipLight = true; hint('[F]로 불을 끄고 가만히 있으면 들키지 않는다 · 뛰면 발소리가 난다', 8); }
+  hudDirty(); saveCP();
+}
+function openDoor(d, fromX, fromZ, hard) {
+  if (d.target === 1) return;
+  if (d.open < 0.05) d.sign = d.axis === 'x' ? (fromZ < d.z + 0.5 ? 1 : -1) : (fromX > d.x + 0.5 ? 1 : -1);
+  d.target = 1; d.speed = hard ? 5.5 : 2.6;
+  const pos = [d.x + 0.5, d.z + 0.5]; if (hard) sThud(pos, false); sCreak(pos, false);
+}
+function closeDoor(d) {
+  if (d.target === 0) return;
+  const s = doorSlab(d), qx = clamp(P.x, s[0], s[2]), qz = clamp(P.z, s[1], s[3]);
+  if (Math.hypot(P.x - qx, P.z - qz) < 0.25) return;             // 문틈에 서 있으면 닫히지 않는다
+  d.target = 0; d.speed = 2.6; sCreak([d.x + 0.5, d.z + 0.5], false);
+}
+function useDoor(d) {
+  const pos = [d.x + 0.5, d.z + 0.5];
+  if (d.jam) { sRattle(pos); d.rattle = 0.3; say('문이 열리지 않는다!', 2); return; }
+  if (d.locked) {
+    if (INV[d.locked]) {
+      d.locked = null; sUnlock(pos);
+      if (d.id === 'k') FLAGS.directorOpen = true; if (d.id === 'q') FLAGS.stairsOpen = true;
+      after(0.35, () => openDoor(d, P.x, P.z)); hudDirty(); saveCP();
+    } else {
+      sRattle(pos); d.rattle = 0.3;
+      if (d.id === 'q') { say('잠겨 있다. 「지하 계단」… 열쇠가 필요하다.', 3); FLAGS.triedStairs = true; }
+      else if (d.id === 'k') { say('원장실은 잠겨 있다. 열쇠가 어딘가에 있을 것이다.', 3.2); FLAGS.triedDirector = true; }
+      else say('잠겨 있다.', 2);
+      hudDirty();
+    }
+    return;
+  }
+  if (d.target === 0) openDoor(d, P.x, P.z); else closeDoor(d);
+}
+function useGen() {
+  const gf = W.dynFaces.gen, pos = [gf.cx, gf.cz + 0.4];
+  FLAGS.sawPanel = true; hudDirty();
+  if (FLAGS.power) { say('발전기는 이미 돌아가고 있다.', 2); return; }
+  if (INV.fusesIn < 3 && INV.fuses > 0) {
+    INV.fusesIn += INV.fuses; INV.fuses = 0; sUnlock(pos);
+    say(INV.fusesIn >= 3 ? '퓨즈 세 개를 모두 꽂았다. 이제 레버만 내리면 된다.' : '퓨즈를 꽂았다. (' + INV.fusesIn + '/3)', 3.2);
+    saveCP(); return;
+  }
+  if (INV.fusesIn < 3) { sClick(); say(INV.fusesIn === 0 ? '퓨즈 자리가 전부 비어 있다. 퓨즈 세 개가 필요하다.' : '퓨즈가 아직 모자라다. (' + INV.fusesIn + '/3)', 3.2); return; }
+  evPower();
+}
+function useSwitch() {
+  if (FLAGS.shutterOn) return;
+  if (!FLAGS.power) {
+    sClick();
+    if (!FLAGS.knowPower) { FLAGS.knowPower = true; say('버튼을 눌러도 반응이 없다. 전기가 나갔다.', 3.2); say('어딘가에 비상 발전기가 있을 것이다.', 3); }
+    else say('전원이 들어오지 않는다.', 2);
+    hudDirty(); return;
+  }
+  FLAGS.shutterOn = true; sClick(); sShutterMotor(5.5); say('열린다…! 빨리, 빨리…!', 3); hudDirty();
+}
+function toggleFlash() {
+  P.flash = !P.flash; sClick();
+  if (P.flash && P.battery <= 0 && INV.batt <= 0) say('배터리가 없다.', 2);
+}
+
+/* ---------- 연출 ---------- */
+function fire(id) {
+  const k = 'ev_' + id; if (FLAGS[k]) return; FLAGS[k] = true;
+  switch (id) {
+    case 'a': after(0.7, () => { sThud([4.5, 9.5], true); G.shake = 0.25; }); after(2.0, () => say('……방금 무슨 소리지.', 2.6)); break;
+    case 'b': APP.A1.on = true; break;
+    case 'c': tvOn(); break;
+    case 'd': after(0.5, () => sClang([P.x + 0.3, P.z + 1.3])); after(1.4, () => sWhisper(null, 8, 0.2)); after(2.8, () => say('……누가 있나?', 2.4)); break;
+    case 'e': {
+      const d = doorById('m');
+      if (d && d.target === 0 && !d.locked) {
+        d.sign = P.z < d.z + 0.5 ? 1 : -1; d.target = 1; d.speed = 0.5; sCreak([d.x + 0.5, d.z + 0.5], true);
+        after(2.4, () => say('문이… 저절로 열렸다.', 2.6));
+      }
+      break;
+    }
+    case 'f': after(0.9, () => sMoan([14.5, 31])); after(1.8, () => say('공기가 다르다. 훨씬 차갑다.', 3)); break;
+    case 'g': {
+      ['B', 'C', 'D', 'E'].forEach((did, i) => after(0.5 + i * 0.34, () => { const d = doorById(did); if (!d) return; sThud([d.x + 0.5, d.z + 0.5], true); d.rattle = 0.4; G.shake = 0.35; }));
+      after(2.5, () => say('안에… 뭔가 있다.', 2.6)); after(3.1, () => sWhisper(null, 9, 0.18));
+      break;
+    }
+  }
+}
+function evKey1() {
+  if (FLAGS.ev_key1) return; FLAGS.ev_key1 = true;
+  if (SET.happy) return;
+  after(1.6, () => { sThud([P.x - 12, P.z + 6], true); G.shake = 0.4; P.flick = 0.9; });
+  after(2.5, () => sShriek([P.x - 14, P.z + 8]));
+  after(3.6, () => { say('……뭔가 깨어났다.', 3); spawnEnemy(10, 26, 4); });
+  after(7, () => hint('그것이 가까이 오면 [F]로 불을 끄고 멈춰라 — 어둠 속에서 가만히 있으면 지나친다', 10));
+}
+function evMorgue() {
+  if (FLAGS.ev_morgue) return; FLAGS.ev_morgue = true;
+  after(0.8, () => { sThud([0.8, 29.5], true); sClang([0.8, 29.5]); G.shake = 0.35; });
+  after(1.8, () => say('서랍이… 안쪽에서 울렸다.', 2.8));
+}
+function evCell() {
+  if (FLAGS.ev_cell) return; FLAGS.ev_cell = true;
+  if (SET.happy) return;
+  const d = doorById('H');
+  EN.grace = Math.max(EN.grace, 15); if (EN.active) placeEnemy(14, 60);
+  after(0.9, () => { if (d) { d.jam = true; d.target = 0; d.speed = 9; sThud([d.x + 0.5, d.z + 0.5], true); } G.shake = 0.5; });
+  after(1.4, () => { P.dark = 6.3; sClick(); say('손전등이…!', 1.8); });
+  after(2.3, () => sWhisper(null, 14, 0.26));
+  after(3.7, () => sWhisper(null, 14, 0.3));
+  after(4.6, () => sCroak([P.x - 0.5, P.z + 0.6], 0.9));
+  after(6.4, () => { flashFace(0.34); sScare(); G.shake = 0.8; G.fx.kick = 1; });
+  after(7.8, () => { if (d) { d.jam = false; sUnlock([d.x + 0.5, d.z + 0.5]); } say('나가야 한다. 지금 당장.', 3); });
+}
+function evPower() {
+  FLAGS.power = true; const gf = W.dynFaces.gen, pos = [gf.cx, gf.cz + 0.4];
+  sUnlock(pos); sPowerUp(pos); startGenHum([18, 21.6]); G.shake = 0.5; P.flick = 0.7;
+  after(1.3, () => { sAlarm([14.5, 25.5]); say('전원이 들어왔다!', 2.4); });
+  after(2.8, () => { if (SET.happy) return; sShriek([20.5, 33.5]); G.shake = 0.5; });
+  after(4.2, () => { say(SET.happy ? '이제 1층 로비로 돌아가 셔터를 열면 된다.' : '……그것도 깨어났다. 1층 로비로, 뛰어!', 3.8); enrage(); });
+  hudDirty(); saveCP();
+}
+function enrage() {
+  EN.rage = true; if (SET.happy) return;
+  EN.grace = 0; EN.stun = 3.4; EN.state = 'chase'; EN.path = null;
+  if (!EN.active) { EN.active = true; EN.seeT = 99; }
+  if (levelOf(P.z) === 1 && Math.hypot(P.x - 20.5, P.z - 33.5) > 9) { EN.x = 20.5; EN.z = 33.5; } else placeEnemy(12, 60);
+  EN.lkx = P.x; EN.lkz = P.z;
+}
+function tvOn() {
+  const tv = W.tv; if (!tv || tv.on) return; tv.on = true; tv.t = 0; sClick();
+  if (AU.on) tv.snd = loopNoise({ type: 'highpass', f0: 1200, gain: 0.45, pos: [tv.x, tv.z], rev: 0.4, roll: 1.6 });
+  after(1.5, () => say('전기도 안 들어오는데… TV가?', 3));
+}
+function tvOff(quiet) {
+  const tv = W.tv; if (!tv || !tv.on) return; tv.on = false;
+  if (tv.snd) { tv.snd.stop(); tv.snd = null; } if (!quiet) sClick();
+}
+function updateTV(dt) {
+  const tv = W.tv; if (!tv || !tv.on) return; tv.t += dt;
+  const d = Math.hypot(P.x - tv.x, P.z - tv.z);
+  if (tv.t > 10 || d < 1.25) { tvOff(); if (d < 1.25) after(0.7, () => sWhisper(null, 6, 0.2)); }
+}
+function updateApps(dt) {
+  for (const id of ['A1', 'A2']) {
+    const a = APP[id], m = W.marks[id]; if (!m || !a.on || a.done) continue;
+    if (levelOf(m.z) !== levelOf(P.z)) continue;
+    const dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz);
+    const dot = (dx * Math.sin(viewYaw()) - dz * Math.cos(viewYaw())) / (d || 1);
+    if (d < 13 && dot > 0.85 && P.lit > 0.3 && los(P.x, P.z, m.x, m.z)) a.seen += dt;
+    if (a.vanish === undefined) {
+      const go = id === 'A1' ? (a.seen > 1.5 || (d < 5 && a.seen > 0.15) || d < 2.2) : (a.seen > 2.2 || d < 1.7);
+      if (go) { a.vanish = 0.22; P.flick = 0.55; sSting(); G.fx.kick = 0.7; }
+    } else {
+      a.vanish -= dt;
+      if (a.vanish <= 0) { a.done = true; a.on = false; a.vanish = undefined; after(1.7, () => say(id === 'A1' ? '……방금, 복도 끝에 누가 서 있었는데.' : '분명히… 구석에 누가 서 있었다.', 3.2)); }
+    }
+  }
+}
+function updateDoors(dt) {
+  for (const d of W.doors) {
+    if (d.rattle > 0) d.rattle -= dt;
+    if (d.open === d.target) continue;
+    const sp = (d.speed || 2.6) * dt;
+    if (d.open < d.target) d.open = Math.min(d.target, d.open + sp);
+    else { d.open = Math.max(d.target, d.open - sp); if (d.open === 0) sThud([d.x + 0.5, d.z + 0.5], d.speed > 5); }
+  }
+}
+
+/* ---------- 체크포인트 ---------- */
+function saveCP() {
+  G.cp = JSON.stringify({
+    p: [P.x, P.z, P.yaw, P.battery], inv: INV, flags: FLAGS, items: W.items.map((i) => (i.taken ? 1 : 0)),
+    doors: W.doors.map((d) => [d.target, d.locked]), app: [APP.A1.done ? 1 : 0, APP.A2.done ? 1 : 0, APP.A1.on ? 1 : 0],
+  });
+}
+function clearTransient() {
+  G.seq.length = 0; G.subQ.length = 0; G.subT = 0; G.subGap = 0; $('sub').style.opacity = 0; $('hint').style.opacity = 0; G.hintT = 0;
+  G.trans = null; G.shake = 0; G.fear = 0; G.fx.red = 0; G.fx.kick = 0; G.fx.static = 0; G.fx.fade = 0; G.cell = -1; G.target = null; G.scareT = 0; $('scare').style.display = 'none';
+  G.shutter = 0; G.hbT = 0; G.ambT = 6; G.dieStage = 0;
+  P.vx = P.vz = 0; P.pitch = 0; P.look = 0; P.stamina = 1; P.exhausted = false; P.flash = true; P.dark = 0; P.flick = 0; P.swapT = 0; P.lpitch = 0;
+  tvOff(true);
+  Object.assign(EN, { active: false, state: 'patrol', path: null, pi: 0, grace: 0, stun: 0, seeT: 99, see: false, same: false, dist: 99, reloc: 0, croakT: 4, moving: false, rage: false, wait: 0, hidden: false, brush: false, calm: 0 });
+  for (const k in K) K[k] = false;
+}
+function loadCP() {
+  const c = JSON.parse(G.cp);
+  clearTransient();
+  P.x = c.p[0]; P.z = c.p[1]; P.yaw = c.p[2]; P.lyaw = P.yaw; P.battery = Math.max(c.p[3], 0.35);
+  Object.assign(INV, c.inv); FLAGS = c.flags; FLAGS.shutterOn = false;
+  W.items.forEach((it, i) => { it.taken = !!c.items[i]; });
+  W.doors.forEach((d, i) => { d.target = c.doors[i][0]; d.open = d.target; d.locked = c.doors[i][1]; d.jam = false; d.rattle = 0; });
+  APP.A1 = { on: !!c.app[2] && !c.app[0], done: !!c.app[0], seen: 0 }; APP.A2 = { on: !c.app[1], done: !!c.app[1], seen: 0 };
+  if (FLAGS.power) { startGenHum([18, 21.6]); EN.active = true; EN.seeT = 99; enrage(); EN.stun = 5; }
+  else { if (AU.genHum) AU.genHum.stop(); if (FLAGS.ev_key1) spawnEnemy(12, 40, 8); }
+  hudDirty();
+}
+function resetGame() {
+  clearTransient();
+  W.items.forEach((it) => { it.taken = false; });
+  W.doors.forEach((d) => { d.open = d.target = 0; d.locked = d.lock0; d.jam = false; d.rattle = 0; });
+  Object.assign(INV, { key1: false, key2: false, fuses: 0, fusesIn: 0, batt: 0, notes: {} }); FLAGS = {};
+  Object.assign(P, { x: W.start.x, z: W.start.z, yaw: W.start.yaw, lyaw: W.start.yaw, battery: 1, bob: 0, bobAmt: 0, lit: 1 });
+  APP.A1 = { on: false, done: false, seen: 0 }; APP.A2 = { on: true, done: false, seen: 0 };
+  G.time = 0; G.playTime = 0; G.deaths = 0; G.locName = '';
+  if (AU.genHum) AU.genHum.stop();
+  hudDirty(); saveCP();
+}
+
+/* ---------- 적 (4-07) ---------- */
+function placeEnemy(minD, maxD) {
+  const dm = distMap(Math.floor(P.x), Math.floor(P.z)), lv = levelOf(P.z), cand = [];
+  let far = null, fd = -1;
+  for (const c of W.openCells[lv]) {
+    const d = dm[idxOf(c[0], c[1])]; if (d < 0) continue;
+    if (d > fd) { fd = d; far = c; }
+    if (d < minD || d > maxD || los(P.x, P.z, c[0] + 0.5, c[1] + 0.5)) continue;
+    cand.push(c);
+  }
+  const c = cand.length ? pick(cand) : far; if (!c) return false;
+  EN.x = c[0] + 0.5; EN.z = c[1] + 0.5; EN.path = null; EN.pi = 0; return true;
+}
+function spawnEnemy(minD, maxD, grace) {
+  EN.active = true; EN.state = 'patrol'; EN.grace = grace || 0; EN.seeT = 99; EN.reloc = 0; EN.stun = 0; EN.croakT = 2; EN.calm = 12;
+  placeEnemy(minD, maxD);
+}
+function pathNear(tx, tz, rmin, rmax, ecx, ecz) {
+  const cells = W.openCells[levelOf(EN.z)], cand = [];
+  for (const c of cells) { const d = Math.hypot(c[0] + 0.5 - tx, c[1] + 0.5 - tz); if (d >= rmin && d <= rmax) cand.push(c); }
+  for (let i = 0; i < 6 && cand.length; i++) { const c = pick(cand), p = bfsPath(ecx, ecz, c[0], c[1]); if (p && p.length) return p; }
+  return null;
+}
+function enMove(dt, speed) {
+  EN.moving = false;
+  if (!EN.path || EN.pi >= EN.path.length) return true;
+  const c = EN.path[EN.pi], tx = c[0] + 0.5, tz = c[1] + 0.5;
+  const dx = tx - EN.x, dz = tz - EN.z, dist = Math.hypot(dx, dz);
+  const d = W.doorAt[idxOf(c[0], c[1])];
+  if (d && d.open < 0.85) {
+    if (d.locked || d.jam) { EN.path = null; return true; }
+    if (d.target === 0) { EN.wait += dt; if (EN.wait > (EN.rage ? 0.25 : 0.6)) { openDoor(d, EN.x, EN.z, !SET.happy); EN.wait = 0; } }
+    if (dist < 0.85) return false;
+  }
+  if (dist < 0.06) { EN.pi++; return EN.pi >= EN.path.length; }
+  const st = Math.min(dist, speed * dt);
+  EN.x += (dx / dist) * st; EN.z += (dz / dist) * st; EN.hx = dx / dist; EN.hz = dz / dist; EN.moving = true;
+  return false;
+}
+function updateEnemy(dt) {
+  if (!EN.active) { EN.same = false; EN.dist = 99; return; }
+  if (SET.happy) { updateHappyGhost(dt); return; }
+  EN.anim += dt;
+  if (EN.grace > 0) EN.grace -= dt;
+  const pl = levelOf(P.z), el = levelOf(EN.z), same = pl === el;
+  const dx = P.x - EN.x, dz = P.z - EN.z, dist = Math.hypot(dx, dz);
+  EN.same = same; EN.dist = same ? dist : 99;
+  if (EN.stun > 0) { EN.stun -= dt; EN.see = false; EN.moving = false; return; }
+  // 불을 끄고 가만히 서 있으면, 이미 쫓기는 중이 아닌 한 알아채지 못하고 지나간다
+  const hidden = !EN.rage && EN.state !== 'chase' && P.lit <= 0.3 && !P.moving;
+  EN.hidden = hidden;
+  let see = false;
+  if (same && EN.grace <= 0 && !hidden) {
+    const lit = P.lit > 0.3, range = EN.rage ? (lit ? 13 : 6) : (lit ? 8 : 2.6);
+    if (dist < range && los(EN.x, EN.z, P.x, P.z)) {
+      const dot = (dx * EN.hx + dz * EN.hz) / (dist || 1);
+      if (dot > 0.3 || dist < 1.6 || EN.state === 'chase') see = true;
+    }
+  }
+  EN.see = see;
+  if (EN.state === 'stairs') {
+    EN.moving = false; EN.timer -= dt;
+    if (EN.timer <= 0) {
+      const s = W.stairs[el === 0 ? '2' : '1'];
+      EN.x = s.x + 0.5; EN.z = s.z + 0.5; EN.path = null; EN.state = EN.rage ? 'chase' : 'patrol'; EN.lkx = P.x; EN.lkz = P.z; EN.seeT = 0; EN.croakT = 0.3;
+    }
+    return;
+  }
+  if (see) {
+    if (EN.state !== 'chase') {
+      EN.state = 'chase'; EN.path = null;
+      if (G.time - EN.lastShriek > 7) { sShriek([EN.x, EN.z]); EN.lastShriek = G.time; G.fx.kick = 0.6; }
+    }
+    EN.seeT = 0; EN.lkx = P.x; EN.lkz = P.z;
+  } else {
+    EN.seeT += dt;
+    if (same && EN.state === 'chase' && EN.seeT < 1.3) { EN.lkx = P.x; EN.lkz = P.z; }
+  }
+  if (EN.rage && same && EN.grace <= 0) { if (EN.state !== 'chase') { EN.state = 'chase'; EN.path = null; } EN.lkx = P.x; EN.lkz = P.z; }
+  if (!see && same && EN.state !== 'chase' && EN.grace <= 0 && P.running && P.moving && dist < 7.5) {
+    if (EN.state !== 'invest') EN.path = null;
+    EN.state = 'invest'; EN.lkx = P.x; EN.lkz = P.z;
+  }
+  if (!same) { if (EN.state !== 'tostairs') { EN.state = 'tostairs'; EN.path = null; EN.timer = EN.rage ? 0 : rr(4, 9); } }
+  else if (EN.state === 'tostairs') { EN.state = 'patrol'; EN.path = null; }
+
+  const ecx = Math.floor(EN.x), ecz = Math.floor(EN.z);
+  let arrived = false;
+  switch (EN.state) {
+    case 'chase':
+      EN.repath -= dt;
+      if (EN.repath <= 0 || !EN.path) { EN.repath = 0.3; EN.path = bfsPath(ecx, ecz, Math.floor(EN.lkx), Math.floor(EN.lkz)); EN.pi = 0; }
+      arrived = enMove(dt, EN.rage ? 2.7 : 2.35);
+      if (!EN.rage && !see && EN.seeT > 1.3 && (arrived || EN.seeT > 9)) { EN.state = 'search'; EN.timer = 9; EN.path = null; }
+      break;
+    case 'invest':
+      if (!EN.path) { EN.path = bfsPath(ecx, ecz, Math.floor(EN.lkx), Math.floor(EN.lkz)); EN.pi = 0; if (!EN.path) { EN.state = 'patrol'; break; } }
+      arrived = enMove(dt, 1.55);
+      if (arrived) { EN.state = 'search'; EN.timer = 6; EN.path = null; }
+      break;
+    case 'search':
+      EN.timer -= dt;
+      if (!EN.path || EN.pi >= EN.path.length) { EN.path = pathNear(EN.lkx, EN.lkz, 0, 3.6, ecx, ecz); EN.pi = 0; }
+      enMove(dt, 1.25);
+      if (EN.timer <= 0) { EN.state = 'patrol'; EN.path = null; EN.calm = 20; }
+      break;
+    case 'tostairs': {
+      if (EN.timer > 0) { EN.timer -= dt; EN.moving = false; break; }
+      const s = W.stairs[el === 0 ? '1' : '2'];
+      if (!EN.path) { EN.path = bfsPath(ecx, ecz, s.x, s.z); EN.pi = 0; if (!EN.path) { EN.timer = 3; break; } }
+      arrived = enMove(dt, EN.rage ? 2.7 : 1.4);
+      if (arrived) {
+        EN.state = 'stairs'; EN.timer = EN.rage ? 2.0 : 3;
+        const o = W.stairs[el === 0 ? '2' : '1']; sStairs([o.x + 0.5, o.z + 0.5]);      // 계단에서 발소리가 들린다
+      }
+      break;
+    }
+    default:
+      if (EN.calm > 0) EN.calm -= dt;
+      if (!EN.path || EN.pi >= EN.path.length) {
+        // 한 번 스쳐 지나간 뒤에는 한동안 멀리 돌아다닌다
+        EN.path = EN.calm > 0 ? pathNear(P.x, P.z, 9, 60, ecx, ecz) : (Math.random() < 0.25 && pathNear(P.x, P.z, 4, 10, ecx, ecz)) || pathNear(EN.x, EN.z, 5, 40, ecx, ecz);
+        EN.pi = 0;
+      }
+      enMove(dt, 1.15);
+      if (dist > 12 && !los(P.x, P.z, EN.x, EN.z)) { EN.reloc += dt; if (EN.reloc > 45) { EN.reloc = 0; placeEnemy(8, 13); } } else EN.reloc = 0;
+  }
+  if (same && EN.grace <= 0 && !hidden && dist < 0.55 && los(EN.x, EN.z, P.x, P.z)) { killPlayer(); return; }
+  if (hidden && same && dist < 1.3 && EN.croakT > 0.4 && !EN.brush) { EN.brush = true; EN.croakT = 0.05; G.fx.kick = 0.8; EN.calm = 32; EN.path = null; }   // 바로 옆을 스쳐 지나간다
+  if (dist > 2.2) EN.brush = false;
+  EN.croakT -= dt;
+  if (EN.croakT <= 0 && same) { EN.croakT = EN.state === 'chase' ? rr(1.4, 2.4) : rr(5, 10); if (dist < 16) sCroak([EN.x, EN.z], EN.state === 'chase' ? 1.1 : 0.85); }
+  if (EN.moving && same && dist < 12) {
+    EN.stepT -= dt;
+    if (EN.stepT <= 0) { EN.stepT = EN.state === 'chase' ? 0.26 : 0.62; sNoise({ dur: 0.09, f0: 340, f1: 80, gain: EN.state === 'chase' ? 3.4 : 2.2, pos: [EN.x, EN.z], rev: 0.5 }); }
+  }
+}
+function killPlayer() {
+  if (G.state !== 'play') return;
+  G.state = 'dying'; G.dieT = 0; G.dieStage = 0; G.deaths++; P.dark = 0; P.flick = 0; P.lit = 1; P.look = 0;
+  sScare();
+}
+function updateDying(dt) {
+  G.time += dt; G.dieT += dt; EN.anim += dt; const t = G.dieT;
+  let dy = Math.atan2(EN.x - P.x, -(EN.z - P.z)) - P.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU;
+  P.yaw += dy * Math.min(1, dt * 14); P.lyaw = P.yaw; P.pitch += (0.1 - P.pitch) * Math.min(1, dt * 10); P.lpitch = P.pitch;
+  const tx = P.x + Math.sin(P.yaw) * 0.36, tz = P.z - Math.cos(P.yaw) * 0.36;
+  EN.x += (tx - EN.x) * Math.min(1, dt * 16); EN.z += (tz - EN.z) * Math.min(1, dt * 16); EN.same = true;
+  G.shake = 0.9; G.fx.kick = 1; G.fx.static = 0.8; G.fx.red = clamp(t / 1.2, 0, 1) * 0.72;
+  if (G.dieStage === 0 && t > 0.42) { G.dieStage = 1; flashFace(0.16); }
+  if (G.dieStage === 1 && t > 0.82) { G.dieStage = 2; flashFace(0.46); }
+  if (t > 1.3) {
+    G.state = 'dead'; $('scare').style.display = 'none'; G.scareT = 0;
+    if (document.pointerLockElement) document.exitPointerLock();
+    $('hud').classList.remove('show'); $('deadtip').textContent = pick(TIPS); showScreen('dead');
+    audioFrame({ x: P.x, z: P.z, yaw: P.yaw, fear: 0.3, static: 0, amb: 1, enOn: false });
+  }
+}
+
+/* ---------- 플레이어 ---------- */
+function startTrans(to) { G.trans = { t: 0, to, done: false }; sStairs(); P.vx = P.vz = 0; }
+function updateTrans(dt) {
+  const tr = G.trans; tr.t += dt;
+  if (tr.t < 0.7) { G.fx.fade = 1 - tr.t / 0.7; return; }
+  if (!tr.done) {
+    tr.done = true;
+    if (tr.to === '2') { const s = W.stairs['2']; P.x = s.x + 0.5; P.z = s.z + 1.5; P.yaw = Math.PI; }
+    else { const s = W.stairs['1']; P.x = s.x + 0.5; P.z = s.z - 0.5; P.yaw = 0; }
+    P.lyaw = P.yaw; P.pitch = 0; P.lpitch = 0; G.cell = -1;
+    if (tr.to === '2' && !FLAGS.beenB1) { FLAGS.beenB1 = true; saveCP(); }
+    hudDirty();
+  }
+  G.fx.fade = clamp((tr.t - 0.9) / 0.7, 0, 1);
+  if (tr.t > 1.6) { G.trans = null; G.fx.fade = 1; }
+}
+function updatePlayer(dt) {
+  const turn = (K.ArrowRight ? 1 : 0) - (K.ArrowLeft ? 1 : 0);
+  if (turn) P.yaw += turn * 2.3 * dt;
+  P.look += ((K.Space ? 1 : 0) - P.look) * Math.min(1, dt * 14);
+  let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0), s = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0);
+  const len = Math.hypot(f, s); if (len > 0) { f /= len; s /= len; }
+  const wantRun = (K.ShiftLeft || K.ShiftRight) && len > 0 && f > 0;
+  P.running = !!(wantRun && !P.exhausted && P.stamina > 0);
+  if (P.running) { P.stamina -= dt / 5.5; if (P.stamina <= 0) { P.stamina = 0; P.exhausted = true; sBreath(); } }
+  else { P.stamina = Math.min(1, P.stamina + dt / (len > 0 ? 9 : 6)); if (P.exhausted && P.stamina > 0.35) P.exhausted = false; }
+  const sp = P.running ? 3.0 : P.exhausted ? 1.3 : 1.65;
+  const fx = Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = Math.sin(P.yaw);
+  const k = 1 - Math.exp(-dt * 12);
+  P.vx += ((fx * f + rx * s) * sp - P.vx) * k; P.vz += ((fz * f + rz * s) * sp - P.vz) * k;
+  const n = Math.max(1, Math.ceil((Math.hypot(P.vx, P.vz) * dt) / 0.08));
+  for (let i = 0; i < n; i++) { P.x += (P.vx * dt) / n; P.z += (P.vz * dt) / n; collide(P, 0.2, G.shutter); }
+  const v = Math.hypot(P.vx, P.vz); P.moving = v > 0.35;
+  if (P.moving) { const pb = P.bob; P.bob += dt * v * 3.4; if (Math.floor(P.bob / Math.PI) !== Math.floor(pb / Math.PI)) sStep(P.running); }
+  P.bobAmt += ((P.moving ? 1 : 0) - P.bobAmt) * Math.min(1, dt * 8);
+  if (P.swapT > 0) { P.swapT -= dt; if (P.swapT <= 0) { P.battery = 1; FLAGS.noBatt = false; sClick(); hudDirty(); } }
+  else if (P.flash && P.dark <= 0) {
+    P.battery = Math.max(0, P.battery - dt / 200);
+    if (P.battery <= 0 && INV.batt > 0) { INV.batt--; P.swapT = 1.4; sClick(); say('배터리가 다 됐다. 갈아 끼우는 중…', 2); hudDirty(); }
+    else if (P.battery <= 0 && !FLAGS.noBatt) { FLAGS.noBatt = true; say('배터리가 다 됐다. 불빛이 거의 죽었다…', 3); }
+  }
+  const cx = Math.floor(P.x), cz = Math.floor(P.z), ci = idxOf(cx, cz);
+  if (ci !== G.cell && inMap(cx, cz)) {
+    G.cell = ci;
+    const tok = TOK[cz][cx];
+    if (tok === 'S1') { startTrans('2'); return; }
+    if (tok === 'S2') { startTrans('1'); return; }
+    const tr = W.triggers[ci]; if (tr) fire(tr);
+    const nm = locNameAt(cx, cz);
+    if (nm !== G.locName) { G.locName = nm; const l = $('loc'); l.textContent = nm; l.style.opacity = 0.85; G.locT = 2.8; }
+  }
+  if (W.exit && cx === W.exit.x && cz === W.exit.z && P.z > W.exit.z + 0.62) endGame();
+}
+function flashLevel(dt) {
+  let v = 0;
+  if (P.flash && P.swapT <= 0) {
+    v = P.battery > 0 ? 1 : 0.13;
+    if (P.battery > 0 && P.battery < 0.12) v *= 0.62 + 0.38 * Math.sin(G.time * 31) * Math.sin(G.time * 7.3);
+    v *= 0.97 + 0.03 * Math.sin(G.time * 47);
+    // 그것이 가까워질수록 손전등이 자주 깜빡인다 (소리를 끄고 해도 알 수 있는 신호)
+    if (EN.active && EN.same && EN.dist < 10 && G.state === 'play' && !SET.happy) { const k = 1 - EN.dist / 10; if (Math.random() < 0.015 + k * 0.11) v *= 0.3 + Math.random() * 0.4; }
+  }
+  if (P.flick > 0) { P.flick -= dt; v *= Math.random() < 0.55 ? 0.04 : 0.8; }
+  if (P.dark > 0) { P.dark -= dt; v = 0; if (P.dark <= 0) sClick(); }
+  P.lit = v;
+}
+function updateFx(dt) {
+  let fear = 0, st = 0;
+  if (EN.active && EN.same && !SET.happy) {
+    const d = EN.dist; fear = clamp(1 - d / 10, 0, 1); if (EN.state === 'chase') fear = Math.max(fear, 0.7);
+    st = clamp(1 - d / 6, 0, 1) * 0.5;
+    if (d < 10 && los(P.x, P.z, EN.x, EN.z)) {
+      const dot = ((EN.x - P.x) * Math.sin(viewYaw()) - (EN.z - P.z) * Math.cos(viewYaw())) / (d || 1);
+      if (dot > 0.6) st += clamp(1 - d / 10, 0, 1) * 0.4;
+    }
+  }
+  if (P.dark > 0) fear = Math.max(fear, 0.85);
+  G.fear += (fear - G.fear) * Math.min(1, dt * 2.5);
+  if (G.fx.kick > 0) G.fx.kick = Math.max(0, G.fx.kick - dt * 1.2);
+  G.fx.static += (Math.min(1, st + G.fx.kick * 0.7) - G.fx.static) * Math.min(1, dt * 8);
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 1.4);
+  G.hbT -= dt;
+  if (G.fear > 0.12 && G.hbT <= 0) { sHeart(0.35 + G.fear * 0.65); G.hbT = lerp(1.15, 0.42, G.fear); }
+}
+function updateAmbient(dt) {
+  G.ambT -= dt; if (G.ambT > 0) return;
+  G.ambT = rr(5, 14);
+  const a = Math.random() * TAU, d = rr(4, 11), pos = [P.x + Math.cos(a) * d, P.z + Math.sin(a) * d], k = Math.random();
+  if (k < 0.3) { sDrip(pos); sTone({ t: rr(0.4, 0.9), f0: 1500, f1: 640, dur: 0.07, gain: 0.12, pos, rev: 0.9 }); }
+  else if (k < 0.5) sCreak(pos, true);
+  else if (k < 0.65) sClang(pos);
+  else if (k < 0.78) sKnock(pos);
+  else if (k < 0.9) sWhisper(pos, 6, 0.6);
+  else sMoan(pos);
+}
+function updateLights(dt) {
+  const t = G.time;
+  for (const L of W.lights) {
+    let v = 0;
+    switch (L.kind) {
+      case 'r': v = FLAGS.power ? 0.4 + 1.5 * Math.pow(0.5 + 0.5 * Math.sin(t * 5 + L.ph), 2) : 0; break;
+      case 'e': case 'n': v = 0.55; break;
+      case 'm': v = 0.5; break;
+      case 'b': L.fl = (L.fl || 0) - dt; if (L.fl <= 0) { L.fl = rr(0.04, 0.5); L.fv = Math.random() < 0.25 ? rr(0, 0.3) : rr(0.7, 1); } v = L.fv || 0; break;
+      case 'tv': v = W.tv && W.tv.on ? rr(0.5, 1.2) : 0; break;
+      case 'x': v = G.shutter * 1.5; break;
+    }
+    L.inten = v;
+  }
+}
+function updateSubs(dt) {
+  const el = $('sub');
+  if (G.subT > 0) { G.subT -= dt; if (G.subT <= 0) { el.style.opacity = 0; G.subGap = 0.5; } }
+  else if (G.subGap > 0) G.subGap -= dt;
+  else if (G.subQ.length) { const s = G.subQ.shift(); el.textContent = s.text; el.style.opacity = 1; G.subT = s.dur; }
+}
+function updateHud(dt) {
+  const h = G.hud, tt = Math.floor(G.playTime);
+  if (tt !== h.tc) {
+    h.tc = tt; $('tc').textContent = fmtTime(tt);
+    const c = 2 * 3600 + 13 * 60 + 7 + tt; $('stamp').textContent = '2026.11.11  AM ' + fmtTime(c % 43200);
+  }
+  const bw = Math.round(P.battery * 100);
+  if (bw !== h.b) { h.b = bw; const f = $('battfill'); f.style.width = 'calc(' + bw + '% - 2px)'; f.classList.toggle('low', bw < 15); }
+  const sw = Math.round(P.stamina * 100);
+  if (sw !== h.s || P.exhausted !== h.ex) { h.s = sw; h.ex = P.exhausted; $('stam').style.opacity = sw < 100 ? 1 : 0; const f = $('stamfill'); f.style.width = sw + '%'; f.classList.toggle('ex', P.exhausted); }
+  const txt = promptText(G.target);
+  if (txt !== h.p) { h.p = txt; const p = $('prompt'); if (txt) { p.innerHTML = '<b>E</b>' + txt; p.style.display = 'block'; } else p.style.display = 'none'; }
+  if (G.hudDirty) {
+    G.hudDirty = false; $('objtext').textContent = objective();
+    const a = []; if (INV.key1) a.push('원장실 열쇠'); if (INV.key2) a.push('지하실 열쇠'); if (INV.fuses) a.push('퓨즈 ×' + INV.fuses);
+    const n = Object.keys(INV.notes).length; if (n) a.push('기록 ' + n + '/' + NOTE_TOTAL);
+    $('inv').innerHTML = a.map((s) => '<span>' + s + '</span>').join('');
+    $('spare').textContent = INV.batt ? '예비 ×' + INV.batt : '';
+  }
+  if (G.hintT > 0) { G.hintT -= dt; if (G.hintT <= 0) $('hint').style.opacity = 0; }
+  if (G.locT > 0) { G.locT -= dt; if (G.locT <= 0) $('loc').style.opacity = 0; }
+  if (document.pointerLockElement !== canvas) { G.unlockT += dt; if (G.unlockT > 1 && G.unlockT < 1.5 && G.hintT <= 0) { hint('화면을 클릭하면 마우스로 시점을 움직일 수 있다 (← → 키도 가능)', 5); G.unlockT = 2; } }
+  else G.unlockT = 0;
+}
+
+/* ---------- 렌더 준비 ---------- */
+function buildDyn() {
+  DYN.reset(); const t = G.time;
+  for (const d of W.doors) {
+    if (Math.abs(d.x - CAM.x) > 22 || Math.abs(d.z - CAM.z) > 22) continue;
+    let th = d.open * 1.5 * d.sign; if (d.rattle > 0) th += Math.sin(t * 70) * 0.035;
+    let hx, hz, ex, ez;
+    if (d.axis === 'x') { hx = d.x + 0.15; hz = d.z + 0.5; ex = hx + Math.cos(th) * 0.7; ez = hz + Math.sin(th) * 0.7; }
+    else { hx = d.x + 0.5; hz = d.z + 0.15; ex = hx - Math.sin(th) * 0.7; ez = hz + Math.cos(th) * 0.7; }
+    vquad(DYN, hx, hz, ex, ez, 0, DOOR_H, d.layer, 0); vquad(DYN, ex, ez, hx, hz, 0, DOOR_H, d.layer, 0);
+  }
+  if (W.exit) { const e = W.exit, o = G.shutter * 0.96; vquad(DYN, e.x + 0.9, e.z + 0.5, e.x + 0.1, e.z + 0.5, o * 0.98, 0.98, TEX.shutter, 0, 0, 1, o, 1); }
+  const gf = W.dynFaces.gen; if (gf) vquad(DYN, gf.blx, gf.blz, gf.brx, gf.brz, 0, H, FLAGS.power ? TEX.genon : TEX['gen' + Math.min(3, INV.fusesIn)], FLAGS.power ? 0.1 : 0);
+  const sf = W.dynFaces.sw; if (sf) vquad(DYN, sf.blx, sf.blz, sf.brx, sf.brz, 0, H, FLAGS.shutterOn ? TEX.sw2 : FLAGS.power ? TEX.sw1 : TEX.sw0, FLAGS.power ? 0.1 : 0);
+  const tv = W.tv;
+  if (tv) {
+    const f = tv.face;
+    if (tv.on) { const u = Math.random(), v = Math.random(); vquad(DYN, f[0], f[1], f[2], f[3], 0.34, 0.62, TEX.tvstatic, 0.9, u, u + 0.6, v, v + 0.6); }
+    else vquad(DYN, f[0], f[1], f[2], f[3], 0.34, 0.62, TEX.tvoff, 0);
+  }
+  for (const L of W.lights) {
+    if (Math.abs(L.x - CAM.x) > 20 || Math.abs(L.z - CAM.z) > 20) continue;
+    if (L.kind === 'r') { const on = L.inten > 0.02; box(DYN, L.x - 0.07, 1.03, L.z - 0.07, L.x + 0.07, H - 0.002, L.z + 0.07, on ? TEX.redlamp : TEX.lampoff, on ? 0.4 + L.inten * 0.6 : 0); }
+    else if (L.kind === 'b') box(DYN, L.x - 0.03, 0.97, L.z - 0.03, L.x + 0.03, 1.04, L.z + 0.03, TEX.bulb, 0.2 + L.inten * 1.3);
+  }
+  for (const s of W.sprites) { if (Math.abs(s.x - CAM.x) > 20 || Math.abs(s.z - CAM.z) > 20) continue; billboard(s.x, 0, s.z, s.w, s.h, s.layer, 0, false); }
+  for (const it of W.items) {
+    if (it.taken) continue; const dx = it.x - CAM.x, dz = it.z - CAM.z; if (Math.abs(dx) > 14 || Math.abs(dz) > 14) continue;
+    billboard(it.x, 0.004, it.z, it.size, it.size, it.layer, 0.1, false);
+    const ph = (G.rt * 0.55 + it.ph) % 2.6;
+    if (ph < 0.32 && dx * dx + dz * dz < 64) { const s = Math.sin((ph / 0.32) * Math.PI) * 0.075; billboard(it.x, it.size * 0.8 - s / 2, it.z, s, s, TEX.spark, 1.0, false, 0.03); }
+  }
+  for (const id of ['A1', 'A2']) {
+    const a = APP[id], m = W.marks[id]; if (!m || !a.on || a.done) continue;
+    if (SET.happy) { billboard(m.x, 0.14 + Math.sin(G.rt * 2.4) * 0.03, m.z, 0.46, 0.46, TEX.cute0, 0.02, false); continue; }
+    billboard(m.x, 0, m.z, 0.5, 0.96, TEX.en0, 0, id === 'A2'); billboard(m.x, 0, m.z, 0.5, 0.96, TEX.eyes0, 0.7, id === 'A2', 0.015);
+  }
+  if (EN.active && EN.same && SET.happy) {
+    const by = 0.14 + Math.sin(G.rt * 3.2) * 0.035, blink = (G.rt % 3.2) < 0.18 || (EN.dist < 1.6 && (G.rt % 1.2) < 0.6);
+    billboard(EN.x, by, EN.z, 0.46, 0.46, blink ? TEX.cute1 : TEX.cute0, 0.02, false);
+    const hp = (G.rt * 0.6) % 1;
+    if (EN.dist < 3) { const hs = 0.11 * (1 - hp * 0.5); billboard(EN.x + Math.sin(G.rt * 2) * 0.05, by + 0.46 + hp * 0.22, EN.z, hs, hs, TEX.heart, 0.05, false, 0.02); }
+  } else if (EN.active && EN.same) {
+    const chase = EN.state === 'chase' || G.state === 'dying' || G.state === 'dead';
+    const fl = Math.floor(EN.anim * (chase ? 7 : 2.2)) % 2 === 1;
+    const by = EN.moving ? Math.abs(Math.sin(EN.anim * (chase ? 11 : 4))) * 0.018 : 0, jx = chase ? (Math.random() - 0.5) * 0.012 : 0;
+    billboard(EN.x + jx, by, EN.z, 0.52, 0.98, chase ? TEX.en1 : TEX.en0, 0.012, fl);
+    billboard(EN.x + jx, by, EN.z, 0.52, 0.98, chase ? TEX.eyes1 : TEX.eyes0, 0.85, fl, 0.015);
+  }
+}
+function renderFrame(dt) {
+  const bob = Math.sin(P.bob * 2) * 0.011 * P.bobAmt, sway = Math.cos(P.bob) * 0.008 * P.bobAmt;
+  let sx = 0, sy = 0; if (G.shake > 0) { sx = (Math.random() - 0.5) * 0.06 * G.shake; sy = (Math.random() - 0.5) * 0.06 * G.shake; }
+  CAM.x = P.x + Math.cos(P.yaw) * sway; CAM.z = P.z + Math.sin(P.yaw) * sway; CAM.y = 0.6 + bob; CAM.yaw = viewYaw() + sx; CAM.pitch = P.pitch + sy;
+  const kf = 1 - Math.exp(-dt * 11);
+  P.lyaw += (viewYaw() - P.lyaw) * kf; P.lpitch += (P.pitch - P.lpitch) * kf;
+  const ly = P.lyaw + Math.sin(G.rt * 1.3) * 0.012, lp = P.lpitch + Math.cos(G.rt * 1.7) * 0.01 - 0.03;
+  ENV.ldir[0] = Math.sin(ly) * Math.cos(lp); ENV.ldir[1] = Math.sin(lp); ENV.ldir[2] = -Math.cos(ly) * Math.cos(lp);
+  ENV.lpos[0] = CAM.x + Math.cos(P.yaw) * 0.07; ENV.lpos[1] = CAM.y - 0.09; ENV.lpos[2] = CAM.z + Math.sin(P.yaw) * 0.07;
+  const hk = G.happyK = (G.happyK || 0) + ((SET.happy ? 1 : 0) - (G.happyK || 0)) * Math.min(1, dt * 4);
+  ENV.flash = P.lit; ENV.amb = lerp(FLAGS.power ? 0.02 : 0.011, 2.0, hk); ENV.fog = lerp(0.13, 0.02, hk);
+  ENV.ambCol[0] = lerp(0.55, 1.0, hk); ENV.ambCol[1] = lerp(0.68, 0.96, hk); ENV.ambCol[2] = lerp(1.0, 0.9, hk);
+  const arr = [];
+  for (const L of W.lights) { if (L.inten <= 0.01) continue; const d = Math.hypot(L.x - CAM.x, L.z - CAM.z); if (d > 18) continue; L._d = d; arr.push(L); }
+  arr.sort((a, b) => a._d - b._d); ENV.lights = arr;
+  const p = ENV.post;
+  p.static = G.fx.static; p.fade = G.fx.fade; p.red = G.fx.red; p.ab = clamp(G.fear * 0.5 + G.fx.kick * 0.6, 0, 1); p.gamma = SET.gamma; p.white = G.fx.white; p.time = G.rt; p.happy = hk; p.grain = lerp(0.07, 0.02, hk);
+  buildDyn(); drawScene(ENV);
+}
+
+/* ---------- 메인 루프 ---------- */
+function update(dt) {
+  G.time += dt; G.playTime += dt;
+  runSeq();
+  if (G.trans) updateTrans(dt);
+  else { updatePlayer(dt); if (G.fx.fade < 1 && !G.trans) G.fx.fade = Math.min(1, G.fx.fade + dt * 0.7); }
+  if (G.state !== 'play') return;
+  flashLevel(dt); updateDoors(dt); updateApps(dt); updateTV(dt);
+  if (FLAGS.shutterOn && G.shutter < 1) G.shutter = Math.min(1, G.shutter + dt / 5.5);
+  if (SET.happy && !EN.active) happySpawn();
+  updateEnemy(dt);
+  if (G.state !== 'play') return;
+  updateFx(dt); updateAmbient(dt);
+  G.target = G.trans ? null : findTarget();
+  updateSubs(dt); updateHud(dt);
+  audioFrame({ x: P.x, z: P.z, yaw: viewYaw(), fear: G.fear, static: G.fx.static, amb: SET.happy ? 0.3 : 1, enOn: EN.active && EN.same && !SET.happy, enX: EN.x, enZ: EN.z, enOcc: EN.active && !los(P.x, P.z, EN.x, EN.z), enChase: EN.state === 'chase' });
+}
+function step(dt) {
+  G.rt += dt;
+  if (G.state === 'play') update(dt);
+  else if (G.state === 'dying') updateDying(dt);
+  else if (G.state === 'title' || G.state === 'intro') {
+    G.time += dt; P.yaw = Math.PI / 2 + Math.sin(G.rt * 0.21) * 0.07; P.pitch = Math.sin(G.rt * 0.13) * 0.025;
+    G.titleT -= dt; if (G.titleT <= 0) { G.titleT = rr(2.5, 7); P.flick = rr(0.15, 0.6); }
+    flashLevel(dt);
+  }
+  if (G.scareT > 0) {
+    G.scareT -= dt; const sc = $('scare');
+    sc.style.transform = 'translate(' + rr(-18, 18) + 'px,' + rr(-18, 18) + 'px) scale(' + rr(1.05, 1.22) + ')';
+    if (G.scareT <= 0) sc.style.display = 'none';
+  }
+  updateLights(dt);
+  // 가려진 화면에서는 GPU를 아낀다
+  G.fc = (G.fc || 0) + 1;
+  if (G.state === 'end' || ((G.state === 'pause' || G.state === 'dead') && G.fc % 4)) return;
+  glResize(); renderFrame(dt);
+}
+let lastT = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const now = ts / 1000; let dt = now - lastT;
+  if (dt > 0 && dt < 0.0122) return;            // 120Hz 화면에서는 60fps로 제한 (발열·배터리 절약)
+  lastT = now;
+  if (!(dt > 0)) dt = 0.016; if (dt > 0.05) dt = 0.05;
+  step(dt);
+}
+
+/* ---------- 화면 전환 / 입력 ---------- */
+function showScreen(id) { for (const s of ['title', 'intro', 'pause', 'dead', 'end', 'note']) $(s).classList.toggle('show', s === id); }
+function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 무시 */ } }
+function startIntro() {
+  G.state = 'intro'; showScreen('intro');
+  const el = $('introtext'); el.innerHTML = '';
+  INTRO.forEach((ln, i) => { const d = document.createElement('div'); d.textContent = ln; d.style.animationDelay = 0.4 + i * 2.1 + 's'; el.appendChild(d); });
+  const sk = $('introskip'); sk.textContent = '클릭하면 건너뜁니다'; sk.classList.remove('ready');
+  clearTimeout(G.introTimer);
+  G.introTimer = setTimeout(() => { sk.textContent = '클릭해서 들어간다'; sk.classList.add('ready'); }, (0.4 + INTRO.length * 2.1 + 0.6) * 1000);
+}
+function beginGame() { if (G.state === 'intro') startPlay(); }
+function startPlay() {
+  clearTimeout(G.introTimer); clearTimeout(G.endTimer);
+  resetGame(); showScreen(null); $('hud').classList.add('show');
+  G.state = 'play'; G.fx.fade = 0; if (AU.ctx) AU.ctx.resume(); lockPointer();
+  after(0.25, () => { sThud([14.5, 19.4], true); sClang([14.5, 19.4]); G.shake = 0.5; });
+  after(1.8, () => say('……셔터가 내려갔다.', 2.6));
+  after(4.8, () => say('안에서는 꿈쩍도 안 한다. 다른 방법을 찾아야 한다.', 3.6));
+  after(9.5, () => { if (G.hintT <= 0) hint('[E] 상호작용 · [F] 손전등 · [Shift] 달리기 · [Space] 뒤돌아보기', 8); });
+}
+function pauseGame() {
+  if (G.state !== 'play') return;
+  G.state = 'pause'; showScreen('pause'); if (AU.ctx) AU.ctx.suspend();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function resumeGame() {
+  if (G.state !== 'pause') return;
+  showScreen(null); G.state = 'play'; if (AU.ctx) AU.ctx.resume(); for (const k in K) K[k] = false; lockPointer();
+}
+function retryGame() {
+  if (G.state !== 'dead') return;
+  loadCP(); showScreen(null); $('hud').classList.add('show'); G.state = 'play'; lockPointer();
+  after(0.6, () => say('……아직 살아 있다.', 2.4));
+}
+function endGame() {
+  if (G.state !== 'play') return;
+  G.state = 'end'; if (document.pointerLockElement) document.exitPointerLock();
+  $('hud').classList.remove('show'); EN.active = false; EN.same = false; tvOff(true); if (AU.genHum) AU.genHum.stop();
+  audioFrame({ x: P.x, z: P.z, yaw: P.yaw, fear: 0, static: 0, amb: 0.5, enOn: false });
+  const el = $('endtext'); el.innerHTML = '';
+  END_LINES.forEach((ln, i) => { const d = document.createElement('div'); d.textContent = ln; d.style.animationDelay = 1.2 + i * 2.6 + 's'; el.appendChild(d); });
+  $('endstats').textContent = '플레이 시간 ' + fmtTime(Math.floor(G.playTime)) + '  ·  찾은 기록 ' + Object.keys(INV.notes).length + '/' + NOTE_TOTAL + '  ·  사망 ' + G.deaths + '회';
+  const st = $('endstats'), bt = $('btnAgain'); st.style.opacity = 0; bt.style.opacity = 0; bt.style.pointerEvents = 'none';
+  showScreen('end');
+  clearTimeout(G.endTimer);
+  G.endTimer = setTimeout(() => { sCroak(null, 0.5); st.style.opacity = 1; bt.style.opacity = 1; bt.style.pointerEvents = 'auto'; }, (1.2 + END_LINES.length * 2.6 + 1.4) * 1000);
+}
+function wireUI() {
+  $('btnStart').onclick = () => { audioInit(); startIntro(); };
+  $('intro').onclick = beginGame;
+  $('btnResume').onclick = resumeGame;
+  $('btnRestart').onclick = () => { if (AU.ctx) AU.ctx.resume(); startPlay(); };
+  $('btnRestart2').onclick = () => startPlay();
+  $('btnRetry').onclick = retryGame;
+  $('btnHappyT').onclick = () => setHappy(!SET.happy);
+  $('btnHappyP').onclick = () => setHappy(!SET.happy);
+  $('btnAgain').onclick = () => startPlay();
+  $('note').onclick = closeNote;
+  const os = $('optSens'), ov = $('optVol'), og = $('optGamma');
+  os.value = SET.sens; ov.value = SET.vol; og.value = SET.gamma;
+  os.oninput = () => { SET.sens = +os.value; saveSet(); };
+  ov.oninput = () => { SET.vol = +ov.value; if (AU.master) AU.master.gain.value = SET.vol; saveSet(); };
+  og.oninput = () => { SET.gamma = +og.value; saveSet(); };
+  canvas.addEventListener('mousedown', () => {
+    if (G.state === 'note') closeNote();
+    else if (G.state === 'play' && document.pointerLockElement !== canvas) lockPointer();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement !== canvas || G.state !== 'play' || G.trans) return;
+    P.yaw += e.movementX * 0.0022 * SET.sens; P.pitch = clamp(P.pitch - e.movementY * 0.0022 * SET.sens, -1.25, 1.25);
+  });
+  document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === canvas) return;
+    if (G.state === 'note') closeNote();
+    if (G.state === 'play') pauseGame();
+  });
+  const block = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'];
+  addEventListener('keydown', (e) => {
+    if (block.includes(e.code)) e.preventDefault();
+    if (e.repeat) return;
+    K[e.code] = true;
+    if (G.state === 'play') {
+      if (e.code === 'KeyE') interact();
+      else if (e.code === 'KeyF') toggleFlash();
+      else if (e.code === 'KeyH') setHappy(!SET.happy);
+      else if (e.code === 'Escape' || e.code === 'KeyP') pauseGame();
+    } else if (G.state === 'note') { if (['KeyE', 'Escape', 'Space', 'Enter'].includes(e.code)) closeNote(); }
+    else if (G.state === 'pause') { if (e.code === 'Escape' || e.code === 'KeyP') resumeGame(); }
+    else if (G.state === 'intro') { if (e.code === 'Space' || e.code === 'Enter') beginGame(); }
+  });
+  addEventListener('keyup', (e) => { K[e.code] = false; });
+  addEventListener('blur', () => { for (const k in K) K[k] = false; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+}
+function boot() {
+  try {
+    buildTextures(); buildWorld();
+    if (!glInit()) throw new Error('이 브라우저는 WebGL2를 지원하지 않습니다. Chrome, Firefox, Safari 최신 버전에서 열어 주세요.');
+    drawScareFace($('scare'));
+    resetGame();
+    P.x = 19.6; P.z = 5.5; P.yaw = Math.PI / 2; P.lyaw = P.yaw; APP.A1.on = true; G.fx.fade = 1; G.state = 'title';
+    wireUI(); setHappy(SET.happy, true); glResize();
+    requestAnimationFrame(frame);
+  } catch (e) {
+    console.error(e);
+    const el = $('err'); el.textContent = '게임을 시작하지 못했습니다: ' + (e && e.message ? e.message : e); showScreen(null); el.classList.add('show');
+  }
+}
+window.__w4 = { G, P, EN, W, INV, APP, ENV, CAM, K, AU, SET, setHappy, auLoops, step, interact, objective, findTarget, audioInit, retryGame, pauseGame, resumeGame, startIntro, flags: () => FLAGS, startPlay, takeItem, useDoor, useGen, useSwitch, fire, spawnEnemy, loadCP, saveCP, endGame, killPlayer, closeNote };
+boot();
+
+</script>
+</body>
+</html>
